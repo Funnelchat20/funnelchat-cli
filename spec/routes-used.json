@@ -1,0 +1,29 @@
+{
+  "description": "Las rutas de la API que usa la CLI, con los parámetros de query que manda. `npm run generate` busca cada una en spec/funnelchat.json (o en spec/pending.json mientras la instantánea no la tenga) y falla si una ruta o un parámetro no existe: la CLI no inventa rutas. `page` y `cursor` no hace falta listarlos: salen de la forma de paginación de la respuesta.",
+  "routes": [
+    { "id": "me", "method": "GET", "path": "/api/v1/me", "query": [], "used_by": ["login", "whoami"] },
+    { "id": "devicesList", "method": "GET", "path": "/api/v1/devices", "query": ["perPage"], "used_by": ["numbers list", "numbers health"] },
+    { "id": "deviceHealth", "method": "GET", "path": "/api/v1/devices/{device}/health", "query": [], "used_by": ["numbers health"] },
+    {
+      "id": "contactsList",
+      "method": "GET",
+      "path": "/api/v1/contacts",
+      "query": ["perPage", "orderBy", "orderByMethod", "tag_ids[]", "tag_mode", "created_from", "created_to", "only_with_phone"],
+      "used_by": ["contacts export"]
+    },
+    { "id": "contactTags", "method": "GET", "path": "/api/v1/contacts/{contact}/tags", "query": ["perPage"], "used_by": ["contacts export"] },
+    { "id": "contactCustomFields", "method": "GET", "path": "/api/v1/contacts/{contact}/custom-fields", "query": ["perPage"], "used_by": ["contacts export"] },
+    { "id": "customFieldsList", "method": "GET", "path": "/api/v1/custom-fields", "query": ["perPage", "orderBy", "orderByMethod"], "used_by": ["contacts export"] },
+    {
+      "id": "conversationsList",
+      "method": "GET",
+      "path": "/api/v1/conversations",
+      "query": ["perPage", "orderBy", "deviceId", "contactId", "updated_since"],
+      "used_by": ["conversations export"]
+    },
+    { "id": "contactMessages", "method": "GET", "path": "/api/v1/contacts/{contactId}/messages", "query": ["perPage", "updated_since"], "used_by": ["conversations export"] },
+    { "id": "templatesList", "method": "GET", "path": "/api/v1/templates", "query": ["perPage", "deviceId", "status"], "used_by": ["templates list"] },
+    { "id": "templateMetrics", "method": "GET", "path": "/api/v1/templates/{template}/metrics", "query": ["from", "to"], "used_by": ["templates metrics"] },
+    { "id": "macStatus", "method": "GET", "path": "/api/v1/mac/status", "query": [], "used_by": ["mac status"] }
+  ]
+}

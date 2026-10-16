@@ -1,0 +1,106 @@
+{
+  "x-fc-pending": {
+    "title": "Pendiente de la especificación",
+    "description": "Rutas que la API tiene en una rama sin mergear y que la instantánea de spec/funnelchat.json todavía no trae. scripts/generate.mjs las suma solo mientras la instantánea no las tenga: cuando una instantánea nueva trae la ruta, la generación usa la de la instantánea y avisa que la entrada de este archivo ya se puede borrar.",
+    "sources": {
+      "template-metrics": "conversations PR #2350 (https://github.com/Funnelchat20/conversations/pull/2350), sin mergear, rama feat/metricas-plantillas-api @ 0626c14ff54f1bd23559b6910e60df3f2c875bd8 (2026-10-16), apilado sobre feat/armar-funnelchat-f1. Archivos: back/routes/api/messages.php, back/app/Modules/Message/Http/Controllers/TemplateMetricsController.php, Http/Requests/TemplateMetricsRequest.php, Http/Resources/TemplateMetricsResource.php, Data/TemplateMetricsResult.php, Exceptions/TemplateMetricsRejectedException.php, back/config/platform-gate.php, back/lang/es/public_api.php."
+    }
+  },
+  "paths": {
+    "/api/v1/templates/{template}/metrics": {
+      "get": {
+        "summary": "Ver las métricas de una plantilla",
+        "description": "Lo que Meta informa de una plantilla de un número oficial, día por día (UTC) y en total. Rango `from`/`to` (AAAA-MM-DD, UTC, inclusive, los dos o ninguno; sin ellos, los últimos 7 días); hasta 90 días hacia atrás. Hasta 60 consultas a Meta por hora por cuenta (`429 template_metrics_rate_limited` con `Retry-After`).",
+        "x-fc-domain": "conversations",
+        "x-fc-permission": "conversations:read",
+        "x-fc-pending": "template-metrics",
+        "parameters": [
+          { "name": "template", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "`TemplateMetricsResource`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": ["template_id", "from", "to", "timezone", "granularity", "fetched_at", "totals", "days"],
+                      "properties": {
+                        "template_id": { "type": "integer" },
+                        "from": { "type": "string", "format": "date" },
+                        "to": { "type": "string", "format": "date" },
+                        "timezone": { "type": "string", "const": "UTC" },
+                        "granularity": { "type": "string", "const": "day" },
+                        "fetched_at": { "type": "string", "format": "date-time" },
+                        "totals": {
+                          "type": "object",
+                          "required": ["sent", "delivered", "read", "clicks", "cost"],
+                          "properties": {
+                            "sent": { "type": "integer" },
+                            "delivered": { "type": "integer" },
+                            "read": { "type": "integer" },
+                            "clicks": { "type": "array", "items": { "$ref": "#/components/schemas/PendingTemplateMetricsClick" } },
+                            "cost": {
+                              "type": ["object", "null"],
+                              "properties": { "amount_spent": { "type": "number" } }
+                            }
+                          }
+                        },
+                        "days": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["date", "sent", "delivered", "read", "clicks", "cost"],
+                            "properties": {
+                              "date": { "type": "string", "format": "date" },
+                              "sent": { "type": "integer" },
+                              "delivered": { "type": "integer" },
+                              "read": { "type": "integer" },
+                              "clicks": { "type": "array", "items": { "$ref": "#/components/schemas/PendingTemplateMetricsClick" } },
+                              "cost": {
+                                "type": ["object", "null"],
+                                "properties": {
+                                  "amount_spent": { "type": ["number", "null"] },
+                                  "cost_per_delivered": { "type": ["number", "null"] },
+                                  "cost_per_url_button_click": { "type": ["number", "null"] }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "La plantilla no existe en tu cuenta." },
+          "422": { "description": "`template_metrics_not_available_for_qr`, `template_not_in_meta`, `number_not_connected_to_meta`, `template_waba_mismatch`, `template_analytics_not_enabled`, `template_analytics_not_available_yet`, o validación del rango." },
+          "429": { "description": "`template_metrics_rate_limited` (consultas a Meta de la hora agotadas) o demasiadas solicitudes por minuto. Trae `Retry-After`." },
+          "502": { "description": "`meta_unavailable`." },
+          "503": { "description": "`meta_rate_limited`, con `Retry-After`." }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PendingTemplateMetricsClick": {
+        "type": "object",
+        "required": ["type", "button_content", "count"],
+        "properties": {
+          "type": { "type": "string" },
+          "button_content": { "type": "string" },
+          "count": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

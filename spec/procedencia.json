@@ -1,0 +1,45 @@
+{
+  "description": "De dónde salió spec/funnelchat.json. Lo escribe `npm run generate -- --spec <archivo>`; no lo edites a mano.",
+  "file": "spec/funnelchat.json",
+  "sha256": "8bbbae569b4cab520884db98f28204156c1bd6c629578bee609343c193e0dadb",
+  "bytes": 635293,
+  "source": {
+    "repository": "git@github.com:Funnelchat20/developers-portal.git",
+    "path": "out/specs/funnelchat.json",
+    "branch": "feat/openapi-unificada",
+    "commit": "0ef4abb008870ed8c7cae49a08900a81e5e57ed8",
+    "commit_date": "2026-10-15T10:53:11-03:00",
+    "file_tracked_in_git": false,
+    "tracked_files_clean": true,
+    "file_modified_at": "2026-10-15T14:11:20.569Z"
+  },
+  "imported_at": "2026-10-16T16:25:34.955Z",
+  "spec": {
+    "openapi": "3.1.0",
+    "title": "Funnelchat API",
+    "version": "v0",
+    "paths": 191,
+    "operations": 230,
+    "webhooks": 28,
+    "domains": [
+      {
+        "domain": "conversations",
+        "sha": "9d723d52c",
+        "branch": "snapshot/referencia-1310",
+        "snapshot_at": "2026-10-13T10:41:30-03:00"
+      },
+      {
+        "domain": "communities",
+        "sha": "fab0bb10",
+        "branch": "snapshot/referencia-1310",
+        "snapshot_at": "2026-10-13T10:41:34-03:00"
+      },
+      {
+        "domain": "accounts",
+        "sha": "c234b6f8",
+        "branch": "snapshot/referencia-1310",
+        "snapshot_at": "2026-10-13T10:41:36-03:00"
+      }
+    ]
+  }
+}
