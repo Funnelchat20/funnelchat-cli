@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+# Local exports made while trying the CLI
+funnelchat-*-export-*/

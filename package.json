@@ -1,0 +1,52 @@
+{
+  "name": "funnelchat-cli",
+  "version": "0.1.0",
+  "description": "CLI de Funnelchat para exportar conversaciones, contactos y métricas desde la API pública",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "Funnelchat",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/Funnelchat20/funnelchat-cli.git"
+  },
+  "keywords": [
+    "funnelchat",
+    "whatsapp",
+    "api",
+    "cli",
+    "export"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "funnelchat": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "generate:check": "node scripts/generate.mjs --check",
+    "build": "tsup",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "vitest run test/e2e",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^18.19.130",
+    "eslint": "^9.39.5",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^4.1.12"
+  }
+}
