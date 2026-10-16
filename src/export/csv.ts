@@ -6,7 +6,7 @@
  * formula when the file is opened in a spreadsheet. Those cells get a leading `'` (OWASP's advice);
  * plain numbers like `-5` or `+5491100000000` are left alone.
  */
-export const CSV_BOM = '﻿';
+export const CSV_BOM = '\uFEFF';
 
 const FORMULA_START = /^[=+\-@\t\r]/;
 const PLAIN_NUMBER = /^[+-]?\d+(\.\d+)?$/;
