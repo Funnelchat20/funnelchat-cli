@@ -121,6 +121,11 @@ describe('exports, details', () => {
     expect(manifest.counts).toMatchObject({ contacts: 2, vanished_during_export: 1 });
   });
 
+  it('a route that does not exist is an error, not a deleted contact', async () => {
+    const account = new FakeAccount({ contacts: 3 }).hook((r) => (r.path.endsWith('/tags') ? { status: 404, body: { error: 'route_not_found' } } : undefined));
+    expect((await run(['contacts', 'export', '-o', 'out'], account)).code).toBe(4);
+  });
+
   it('contacts filters reach the API as it expects them', async () => {
     const result = await run(['contacts', 'export', '-o', 'out', '--tag', '1', '--tag', '2,3', '--tag-mode', 'all', '--created-from', '2026-10-01', '--created-to', '2026-10-15', '--only-with-phone']);
     expect(result.code).toBe(0);

@@ -285,7 +285,7 @@ async function enrich(client: ApiClient, contact: Record<string, unknown>, id: n
     const customFields = o.with_custom_fields ? await all(client, routes.contactCustomFields, id) : undefined;
     return { ...contact, ...(tags ? { tags } : {}), ...(customFields ? { custom_fields: customFields } : {}) };
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return null;
+    if (error instanceof ApiError && error.status === 404 && error.apiCode !== 'route_not_found') return null;
     throw error;
   }
 }

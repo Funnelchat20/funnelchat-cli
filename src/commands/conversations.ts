@@ -250,7 +250,7 @@ export async function conversationsExport(ctx: Context, flags: ConversationsExpo
         try {
           page = await client.page<Record<string, unknown>>(routes.contactMessages, { path: { contactId }, query });
         } catch (error) {
-          if (error instanceof ApiError && error.status === 404) {
+          if (error instanceof ApiError && error.status === 404 && error.apiCode !== 'route_not_found') {
             state.vanished_contacts.push(contactId);
             m.next = null;
             break;
