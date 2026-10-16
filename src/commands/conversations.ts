@@ -317,7 +317,7 @@ export async function conversationsExport(ctx: Context, flags: ConversationsExpo
       ctx,
       session,
       manifest,
-      `${formatCount(contactIds.length)} conversaciones y ${formatCount(m.total)} mensajes en ${formatCount(m.parts.length)} partes, en ${session.dir}`,
+      `${formatCount(contactIds.length)} conversaciones y ${formatCount(m.total)} mensajes en ${formatCount(m.parts.length)} ${m.parts.length === 1 ? 'parte' : 'partes'}, en ${session.dir}`,
     );
   } catch (error) {
     throw withResumeHint(error, resumeCommand);
