@@ -66,7 +66,7 @@ export class Context {
       for (const profile of Object.values(this.#config.config.profiles)) this.redactor.add(profile.api_key);
       if (this.#config.insecurePermissions && !this.#warnedConfig) {
         this.#warnedConfig = true;
-        this.out.warn(`otros usuarios de esta máquina pueden leer ${this.#config.path}. Corregilo con: chmod 600 "${this.#config.path}"`);
+        this.out.warn(`otros usuarios de esta máquina pueden leer ${this.#config.path}. Corrígelo con: chmod 600 "${this.#config.path}"`);
       }
     }
     return this.#config;

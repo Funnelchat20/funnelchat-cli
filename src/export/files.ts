@@ -40,7 +40,7 @@ export function outputExists(path: string): CliError {
   return new CliError(`Ya existe ${path}: la CLI nunca pisa un archivo.`, {
     exitCode: ExitCode.EXISTS,
     code: 'output_exists',
-    hint: 'Elegí otra carpeta con --output-dir, o mové ese archivo.',
+    hint: 'Elige otra carpeta con --output-dir, o mueve ese archivo.',
     details: { path },
   });
 }
@@ -237,6 +237,6 @@ function inconsistent(detail: string): CliError {
   return new CliError(`No se puede retomar: el estado de la exportación no coincide con los archivos (${detail}).`, {
     exitCode: ExitCode.USAGE,
     code: 'resume_inconsistent',
-    hint: 'Empezá la exportación de nuevo en otra carpeta.',
+    hint: 'Empieza la exportación de nuevo en otra carpeta.',
   });
 }

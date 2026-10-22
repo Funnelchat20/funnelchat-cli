@@ -104,7 +104,7 @@ function normalize(flags: ContactsExportFlags): ContactsOptions {
   const tagIds = idList(flags.tag, '--tag');
   if (tagMode !== null && tagIds.length === 0) throw usageError('--tag-mode necesita al menos un --tag.');
   if (Boolean(flags.createdFrom) !== Boolean(flags.createdTo)) {
-    throw usageError('--created-from y --created-to van juntos: la API pide los dos.', 'Para "desde una fecha hasta hoy", poné hoy en --created-to.');
+    throw usageError('--created-from y --created-to van juntos: la API pide los dos.', 'Para "desde una fecha hasta hoy", pon hoy en --created-to.');
   }
   return {
     format,
@@ -259,7 +259,7 @@ export async function contactsExport(ctx: Context, flags: ContactsExportFlags, e
       files: [entry],
       notes: [
         'Contactos ordenados por id ascendente, como los pagina GET /api/v1/contacts (por número de página).',
-        'Si se borran contactos mientras se exporta, la paginación por número de página puede saltear alguno: compará counts.contacts con counts.api_total_at_start.',
+        'Si se borran contactos mientras se exporta, la paginación por número de página puede saltear alguno: compara counts.contacts con counts.api_total_at_start.',
         ...(o.with_tags ? ['Etiquetas: GET /api/v1/contacts/{contact}/tags, una consulta por contacto (el listado no las trae).'] : []),
         ...(o.with_custom_fields
           ? ['Campos personalizados: GET /api/v1/contacts/{contact}/custom-fields, una consulta por contacto (el listado no los trae).']

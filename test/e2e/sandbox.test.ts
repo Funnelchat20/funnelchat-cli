@@ -119,10 +119,10 @@ describe.skipIf(!SANDBOX_DIR)('end to end against funnelchat-sandbox', () => {
     };
     const result = await cli(['--json', 'whoami'], { fetch: recording, cwd: tempDir(), env: { ...env(), FUNNELCHAT_API_KEY: '1|fc_live_not_the_sandbox_key' } });
     expect(result.code).toBe(3);
-    // funnelchat-sandbox feat/inicial @ 7a1b3d8 (2026-10-22) does not send the header yet: then the CLI
-    // must not make one up. Once it does, the CLI must carry exactly that one.
+    // The sandbox sends one on every answer since feat/inicial @ 7e244b8, like api-edge v0.3.0.
     const id = seen.at(-1);
-    expect(JSON.parse(result.stderr).error.request_id).toBe(id === '' ? undefined : id);
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    expect(JSON.parse(result.stderr).error.request_id).toBe(id);
   });
 
   it("numbers list keeps the API's capabilities apart from the CLI's", async () => {

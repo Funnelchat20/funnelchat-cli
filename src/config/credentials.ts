@@ -45,14 +45,14 @@ export function checkKeyShape(key: string): string {
     throw new CliError('La clave no tiene la forma de una clave de Funnelchat (`<id>|fc_live_…`).', {
       exitCode: ExitCode.AUTH,
       code: 'malformed_key',
-      hint: 'Copiala completa desde la pantalla Desarrolladores de tu cuenta, incluido el `<id>|` del principio.',
+      hint: 'Cópiala completa desde la pantalla Desarrolladores de tu cuenta, incluido el `<id>|` del principio.',
     });
   }
   return trimmed;
 }
 
 export function resolveBaseUrl(flags: ConnectionFlags, env: Record<string, string | undefined>, profileUrl: string | undefined): string {
-  if (flags.baseUrl && flags.staging) throw usageError('Usá --base-url o --staging, no los dos.');
+  if (flags.baseUrl && flags.staging) throw usageError('Usa --base-url o --staging, no los dos.');
   const raw = flags.baseUrl ?? (flags.staging ? STAGING_URL : undefined) ?? nonEmpty(env.FUNNELCHAT_BASE_URL) ?? profileUrl ?? PRODUCTION_URL;
   return checkBaseUrl(raw);
 }
@@ -90,13 +90,13 @@ export function resolveCredentials(flags: ConnectionFlags, env: Record<string, s
     throw new CliError(`El perfil "${flags.profile}" no tiene clave guardada.`, {
       exitCode: ExitCode.AUTH,
       code: 'no_key',
-      hint: `Guardala con \`funnelchat login --profile ${flags.profile}\`.`,
+      hint: `Guárdala con \`funnelchat login --profile ${flags.profile}\`.`,
     });
   }
   throw new CliError('No hay clave de API.', {
     exitCode: ExitCode.AUTH,
     code: 'no_key',
-    hint: 'Definí la variable FUNNELCHAT_API_KEY o guardala con `funnelchat login`.',
+    hint: 'Define la variable FUNNELCHAT_API_KEY o guárdala con `funnelchat login`.',
   });
 }
 

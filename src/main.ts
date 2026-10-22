@@ -43,7 +43,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
 
   const program = new Command('funnelchat');
   program
-    .description('Exportá conversaciones y contactos de tu cuenta de Funnelchat desde la API pública, y consultá tus números, plantillas y MACs.')
+    .description('Exporta conversaciones y contactos de tu cuenta de Funnelchat desde la API pública, y consulta tus números, plantillas y MACs.')
     .version(VERSION, '-V, --version', 'Muestra la versión.')
     .helpOption('-h, --help', 'Muestra la ayuda.')
     .helpCommand('help [comando]', 'Muestra la ayuda de un comando.')
@@ -163,7 +163,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
   const mac = program.command('mac').description('Contactos activos por mes (MACs).');
   mac
     .command('status')
-    .description('Cuántos MACs llevás en el período, el límite y cuántos te quedan.')
+    .description('Cuántos MACs llevas en el período, el límite y cuántos te quedan.')
     .action(action((ctx) => macStatus(ctx)));
 
   for (const command of program.commands) {

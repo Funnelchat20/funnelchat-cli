@@ -157,7 +157,7 @@ export async function conversationsExport(ctx: Context, flags: ConversationsExpo
               throw new CliError(`El contacto ${id} no existe en la cuenta, o la clave no lo ve.`, {
                 exitCode: ExitCode.NOT_FOUND,
                 code: 'contact_not_found',
-                hint: 'Revisá el id: es el `id` de GET /api/v1/contacts.',
+                hint: 'Revisa el id: es el `id` de GET /api/v1/contacts.',
               });
             }
             if (!seen.has(id)) {

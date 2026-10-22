@@ -124,7 +124,7 @@ export class ApiError extends CliError {
 /** The hint plus the line with the id to cite, when the response had one. */
 function withRequestId(hint: string | undefined, requestId: string | undefined): string | undefined {
   if (!requestId) return hint;
-  const cite = `Id del pedido (X-Request-Id): ${requestId}. Citalo, con la hora aproximada, si lo reportás a soporte.`;
+  const cite = `Id del pedido (X-Request-Id): ${requestId}. Cítalo, con la hora aproximada, si lo reportas a soporte.`;
   return hint ? `${hint}\n${cite}` : cite;
 }
 
@@ -141,7 +141,7 @@ function describe(
     return {
       exitCode: ExitCode.AUTH,
       message: `La API rechazó la clave (401 en ${where})${said}`,
-      hint: 'Revisá que la clave esté completa (con el `<id>|` del principio) y siga activa, y volvé a correr `funnelchat login`.',
+      hint: 'Revisa que la clave esté completa (con el `<id>|` del principio) y siga activa, y vuelve a correr `funnelchat login`.',
     };
   }
   if (status === 403) {
@@ -149,14 +149,14 @@ function describe(
     return {
       exitCode: ExitCode.AUTH,
       message: `La clave no puede usar ${where} (403${apiCode ? ` ${apiCode}` : ''})${said}`,
-      hint: apiCode === 'route_not_available' ? 'Ninguna clave la habilita por ahora.' : `Creá una clave con el permiso que falta.${permission}`,
+      hint: apiCode === 'route_not_available' ? 'Ninguna clave la habilita por ahora.' : `Crea una clave con el permiso que falta.${permission}`,
     };
   }
   if (status === 404 && apiCode === 'route_not_found') {
     return {
       exitCode: ExitCode.NOT_FOUND,
       message: `La ruta no existe en la API (404 route_not_found en ${where}).`,
-      hint: 'La CLI solo llama rutas de la referencia de la API: revisá que la URL base sea la de la API pública (https://api.funnelchat.com) y que tengas la última versión de la CLI.',
+      hint: 'La CLI solo llama rutas de la referencia de la API: revisa que la URL base sea la de la API pública (https://api.funnelchat.com) y que tengas la última versión de la CLI.',
     };
   }
   if (status === 404) {
@@ -174,14 +174,14 @@ function describe(
     return {
       exitCode: ExitCode.API,
       message: `La API no está disponible en este momento (500 edge_misconfigured en ${where}): la entrada de la API no está configurada para llegar a esta área.`,
-      hint: 'Es un problema del lado de Funnelchat: reportalo.',
+      hint: 'Es un problema del lado de Funnelchat: repórtalo.',
     };
   }
   if (status === 502 && apiCode === 'origin_unreachable') {
     return {
       exitCode: ExitCode.API,
       message: `La API no está disponible en este momento (502 origin_unreachable en ${where}): la entrada de la API no pudo comunicarse con el área que atiende la ruta.`,
-      hint: 'Volvé a intentar en unos minutos; si sigue, reportalo.',
+      hint: 'Vuelve a intentar en unos minutos; si sigue, repórtalo.',
     };
   }
   return { exitCode: ExitCode.API, message: `La API respondió ${status}${apiCode ? ` ${apiCode}` : ''} en ${where}${said}` };
@@ -190,7 +190,7 @@ function describe(
 /** The request never got an answer: DNS, connection refused, reset, TLS, timeout. */
 export class ConnectionError extends CliError {
   constructor(message: string, cause?: unknown) {
-    super(message, { exitCode: ExitCode.API, code: 'connection_error', hint: 'Revisá tu conexión y la URL base, y volvé a intentar.', cause });
+    super(message, { exitCode: ExitCode.API, code: 'connection_error', hint: 'Revisa tu conexión y la URL base, y vuelve a intentar.', cause });
   }
 }
 

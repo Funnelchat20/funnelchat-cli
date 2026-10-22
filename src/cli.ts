@@ -11,7 +11,7 @@ process.on('SIGINT', () => {
 });
 
 if (typeof globalThis.fetch !== 'function') {
-  process.stderr.write('error: esta versión de Node no tiene fetch. Usá Node 18 o posterior.\n');
+  process.stderr.write('error: esta versión de Node no tiene fetch. Usa Node 18 o posterior.\n');
   process.exit(1);
 }
 

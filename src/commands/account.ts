@@ -32,7 +32,7 @@ export async function login(ctx: Context, flags: LoginFlags): Promise<void> {
   const baseUrl = resolveBaseUrl(ctx.globals, ctx.io.env, config.profiles[profile]?.base_url);
 
   const raw = ctx.io.stdin.isTTY && ctx.io.stdin.setRawMode
-    ? await promptHidden(ctx.io.stdin, ctx.io.stderr, 'Pegá tu clave de API de Funnelchat (no se muestra) y apretá Enter: ')
+    ? await promptHidden(ctx.io.stdin, ctx.io.stderr, 'Pega tu clave de API de Funnelchat (no se muestra) y presiona Enter: ')
     : await readAll(ctx.io.stdin);
   const key = checkKeyShape(raw);
   ctx.redactor.add(key);
@@ -103,7 +103,7 @@ export function profilesList(ctx: Context): void {
   }));
   ctx.out.result({ config_file: path, active_profile: active, env_key: Boolean(ctx.io.env.FUNNELCHAT_API_KEY), profiles: rows }, () =>
     rows.length === 0
-      ? `No hay perfiles guardados (${path}). Guardá uno con \`funnelchat login\`.`
+      ? `No hay perfiles guardados (${path}). Guarda uno con \`funnelchat login\`.`
       : [
           ...table(
             ['', 'perfil', 'url base', 'clave', 'guardada'],
@@ -116,7 +116,7 @@ export function profilesList(ctx: Context): void {
 
 export function profilesUse(ctx: Context, name: string): void {
   const { config } = ctx.config();
-  if (!config.profiles[name]) throw usageError(`No existe el perfil "${name}".`, `Crealo con \`funnelchat login --profile ${name}\`.`);
+  if (!config.profiles[name]) throw usageError(`No existe el perfil "${name}".`, `Créalo con \`funnelchat login --profile ${name}\`.`);
   config.current_profile = name;
   const path = saveConfig(ctx.io.env, config);
   ctx.out.result({ active_profile: name, config_file: path }, () => `Perfil activo: "${name}".`);

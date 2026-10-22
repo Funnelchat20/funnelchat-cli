@@ -39,7 +39,7 @@ describe("the API entry's own errors", () => {
     expect(result.code).toBe(6);
     expect(calls).toHaveLength(1);
     expect(result.stderr).toContain('500 edge_misconfigured');
-    expect(result.stderr).toContain('reportalo');
+    expect(result.stderr).toContain('repórtalo');
     expect(result.stderr).toContain(requestIdOf(1));
   });
 

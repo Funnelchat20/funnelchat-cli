@@ -167,7 +167,7 @@ export class ApiClient {
         throw stopForLongWait(error, retryAfter, opts.clock());
       }
       if (!canRetry) {
-        if (response.status === 429) error.hint = [`Esperá ${formatSeconds(retryAfter ?? 60)} y volvé a intentar.`, error.hint].filter(Boolean).join('\n');
+        if (response.status === 429) error.hint = [`Espera ${formatSeconds(retryAfter ?? 60)} y vuelve a intentar.`, error.hint].filter(Boolean).join('\n');
         throw error;
       }
       const delay = retryAfter !== undefined ? Math.ceil(retryAfter * 1000) : backoffMs(attempt, random);

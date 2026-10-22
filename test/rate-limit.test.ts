@@ -10,7 +10,7 @@ describe('429 and Retry-After', () => {
   it('waits exactly Retry-After and retries the read', async () => {
     let n = 0;
     const account = new FakeAccount().hook((request) =>
-      request.path === '/api/v1/me' && n++ < 2 ? { status: 429, headers: { 'Retry-After': '7' }, body: { error: 'rate_limited', message: 'Esperá.' } } : undefined,
+      request.path === '/api/v1/me' && n++ < 2 ? { status: 429, headers: { 'Retry-After': '7' }, body: { error: 'rate_limited', message: 'Espera.' } } : undefined,
     );
     const { fetch, calls } = account.fetch();
     const result = await cli(['whoami'], { fetch, cwd: tempDir() });

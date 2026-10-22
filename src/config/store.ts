@@ -54,7 +54,7 @@ export function loadConfig(env: Record<string, string | undefined>): LoadedConfi
     throw new CliError(`No se pudo leer el archivo de configuración ${path}: no es JSON válido.`, {
       exitCode: ExitCode.USAGE,
       code: 'config_unreadable',
-      hint: 'Corregilo o borralo y volvé a correr `funnelchat login`.',
+      hint: 'Corrígelo o bórralo y vuelve a correr `funnelchat login`.',
       cause,
     });
   }

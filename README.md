@@ -13,11 +13,11 @@ funnelchat conversations export --since 2026-10-01 --output-dir ./octubre
 
 - **Solo lee.** No manda mensajes, no crea ni modifica nada en tu cuenta: todas sus llamadas son `GET`.
 - **Exporta paginando la API pública**, porque la API no tiene una exportación del lado del servidor. Una cuenta grande lleva su tiempo: la CLI va a un ritmo bajo a propósito para no frenar tu panel.
-- **No guarda ni muestra tu clave** en ningún lado salvo en tu archivo de configuración, si usás `funnelchat login`.
+- **No guarda ni muestra tu clave** en ningún lado salvo en tu archivo de configuración, si usas `funnelchat login`.
 
 ## Instalación
 
-Necesitás Node 18 o posterior.
+Necesitas Node 18 o posterior.
 
 ```bash
 npm install --global funnelchat-cli
@@ -29,7 +29,7 @@ O sin instalarla: `npx funnelchat-cli --version`.
 ### Un ejemplo mínimo
 
 ```bash
-funnelchat login                                   # pegá tu clave; no se muestra
+funnelchat login                                   # pega tu clave; no se muestra
 funnelchat whoami                                  # a qué cuenta pertenece
 funnelchat contacts export --output-dir ./mis-contactos
 ```
@@ -46,7 +46,7 @@ npm run build
 npm link            # deja el comando `funnelchat` disponible en tu terminal
 ```
 
-Sin `npm link`, corré `node dist/cli.js` en lugar de `funnelchat`.
+Sin `npm link`, ejecuta `node dist/cli.js` en lugar de `funnelchat`.
 
 ## Autenticación
 
@@ -66,21 +66,21 @@ export FUNNELCHAT_API_KEY='<id>|fc_live_...'   # entre comillas: lleva un |
 funnelchat whoami
 ```
 
-**Con `funnelchat login`**, que la guarda en tu archivo de configuración con permisos `0600` (solo vos podés leerlo):
+**Con `funnelchat login`**, que la guarda en tu archivo de configuración con permisos `0600` (solo tú puedes leerlo):
 
 ```bash
 funnelchat login
-# Pegá tu clave de API de Funnelchat (no se muestra) y apretá Enter:
+# Pega tu clave de API de Funnelchat (no se muestra) y presiona Enter:
 ```
 
 ```
-Clave guardada en el perfil "default" (/Users/vos/.config/funnelchat/config.json, permisos 0600).
+Clave guardada en el perfil "default" (/Users/ana/.config/funnelchat/config.json, permisos 0600).
 Cuenta: Mi Empresa (hola@miempresa.com)
 ```
 
 Antes de guardarla, `login` la prueba contra `GET /api/v1/me`: si la API la rechaza, no se guarda. También la lee de la entrada estándar (`funnelchat login < clave.txt`). La CLI **nunca** toma la clave de una opción de la línea de comandos, para que no quede en el historial de tu terminal.
 
-**Qué clave usa.** Si pasás `--profile`, la de ese perfil. Si no, `FUNNELCHAT_API_KEY` si está definida. Si no, la del perfil activo (el último con el que hiciste `login`, o el de `FUNNELCHAT_PROFILE`).
+**Qué clave usa.** Si pasas `--profile`, la de ese perfil. Si no, `FUNNELCHAT_API_KEY` si está definida. Si no, la del perfil activo (el último con el que hiciste `login`, o el de `FUNNELCHAT_PROFILE`).
 
 **Perfiles.** Para varias cuentas o entornos:
 
@@ -162,11 +162,11 @@ funnelchat contacts export --format jsonl --tag 4001 --created-from 2026-10-01 -
 ```
 
 ```
-Exportando contactos a /Users/vos/contactos
+Exportando contactos a /Users/ana/contactos
   contactos: 100 de 436
   …
-Exportación completa: 436 contactos en /Users/vos/contactos/contacts.csv.
-Manifiesto: /Users/vos/contactos/manifest.json (sha256 9f2c…)
+Exportación completa: 436 contactos en /Users/ana/contactos/contacts.csv.
+Manifiesto: /Users/ana/contactos/manifest.json (sha256 9f2c…)
 ```
 
 | Opción | Qué hace |
@@ -182,7 +182,7 @@ Manifiesto: /Users/vos/contactos/manifest.json (sha256 9f2c…)
 
 - **El CSV** trae una columna por dato del contacto (`id`, `name`, `phone`, `email`, `whatsapp_id`, `country_code`, `created_at`, `lead_score`…), `tags` (los nombres, separados por `; `) y `tag_ids`, y una columna `custom_field:<nombre>` por cada campo personalizado de tu cuenta. Va con BOM UTF-8 y fin de línea CRLF, para que Excel muestre bien los acentos.
 - **Una celda que empieza con `=`, `+`, `-` o `@`** (y no es un número) lleva un `'` adelante: los nombres los escriben tus contactos, y así tu planilla no los ejecuta como fórmulas.
-- **Tarda más con etiquetas y campos:** el listado de contactos no los trae, así que la CLI hace dos llamadas más por contacto. Al ritmo por defecto (1 por segundo), 1.000 contactos con todo son unas 2.010 llamadas, unos 35 minutos. Si no los necesitás, `--no-tags --no-custom-fields` lo baja a 10 llamadas.
+- **Tarda más con etiquetas y campos:** el listado de contactos no los trae, así que la CLI hace dos llamadas más por contacto. Al ritmo por defecto (1 por segundo), 1.000 contactos con todo son unas 2.010 llamadas, unos 35 minutos. Si no los necesitas, `--no-tags --no-custom-fields` lo baja a 10 llamadas.
 - **El orden** es por `id` ascendente.
 
 ### `funnelchat conversations export`
@@ -197,11 +197,11 @@ funnelchat conversations export --device 3 --part-size 10000 -o ./ventas
 ```
 
 ```
-Exportando conversaciones a /Users/vos/octubre
+Exportando conversaciones a /Users/ana/octubre
   conversaciones: 340
   conversación 1 de 340 (contacto 2001): 128 mensajes · total 128
   …
-Exportación completa: 340 conversaciones y 21.450 mensajes en 1 parte, en /Users/vos/octubre.
+Exportación completa: 340 conversaciones y 21.450 mensajes en 1 parte, en /Users/ana/octubre.
 ```
 
 | Opción | Qué hace |
@@ -244,7 +244,7 @@ id  nombre      idioma  categoría  estado    número
 
 ### `funnelchat mac status`
 
-Cuántos contactos activos del mes (MACs) llevás en el período, el límite y cuántos te quedan. Si tu cuenta tiene el control de MAC por contacto, también cuántos contactos quedaron inactivos: a esos la API no les deja mandar mensajes con clave (`429 mac_lockout_24h`).
+Cuántos contactos activos del mes (MACs) llevas en el período, el límite y cuántos te quedan. Si tu cuenta tiene el control de MAC por contacto, también cuántos contactos quedaron inactivos: a esos la API no les deja mandar mensajes con clave (`429 mac_lockout_24h`).
 
 ```bash
 funnelchat mac status
@@ -257,7 +257,7 @@ MACs del período: 120 de 1.000 (12 %) · quedan 880
 
 ## Las exportaciones
 
-> **Datos personales.** Lo que exportás tiene datos personales de tus contactos: nombres, teléfonos y mensajes. Guardalo en un lugar seguro, no lo compartas sin necesidad y borralo cuando ya no lo uses.
+> **Datos personales.** Lo que exportas tiene datos personales de tus contactos: nombres, teléfonos y mensajes. Guárdalo en un lugar seguro, no lo compartas sin necesidad y bórralo cuando ya no lo uses.
 
 ### Archivos que se pueden verificar
 
@@ -300,7 +300,7 @@ Si una exportación se corta (Ctrl+C, la red, un límite de la API), lo exportad
 
 ```
 error: No se pudo conectar con la API de Funnelchat (api.funnelchat.com).
-  Revisá tu conexión y la URL base, y volvé a intentar.
+  Revisa tu conexión y la URL base, y vuelve a intentar.
   Lo exportado hasta la última página completa quedó guardado. Para seguir desde ahí:
   funnelchat contacts export --output-dir ./contactos --resume
 ```
@@ -310,13 +310,13 @@ funnelchat contacts export --output-dir ./contactos --resume
 ```
 
 - **No se repite ninguna fila:** el estado se guarda después de cada página, y al retomar se descarta lo que se haya escrito después del último guardado.
-- **Con `--resume` no hace falta repetir las opciones:** se usan las de la exportación original. Si pasás una distinta, la CLI no sigue (para no mezclar dos exportaciones distintas en una carpeta). Retomala con la misma clave y la misma URL base.
+- **Con `--resume` no hace falta repetir las opciones:** se usan las de la exportación original. Si pasas una distinta, la CLI no sigue (para no mezclar dos exportaciones distintas en una carpeta). Retómala con la misma clave y la misma URL base.
 - **El estado** vive en `<carpeta>/.funnelchat-export.json` mientras la exportación no termina. Se borra al terminar.
-- **Si se borran contactos mientras se exporta**, la paginación por número de página de `GET /api/v1/contacts` puede saltear alguno: compará `counts.contacts` con `counts.api_total_at_start` en el manifiesto.
+- **Si se borran contactos mientras se exporta**, la paginación por número de página de `GET /api/v1/contacts` puede saltear alguno: compara `counts.contacts` con `counts.api_total_at_start` en el manifiesto.
 
 ## Ser buen ciudadano con la API
 
-- **Ritmo bajo:** como máximo 1 llamada por segundo, reintentos incluidos. Lo cambiás con `--rate` (mayor que 0 y hasta 10; `0.5` es una cada dos segundos) o `FUNNELCHAT_RATE`. Los límites por minuto de la API se cuentan por usuario y tu panel los comparte: subilo con cuidado.
+- **Ritmo bajo:** como máximo 1 llamada por segundo, reintentos incluidos. Lo cambias con `--rate` (mayor que 0 y hasta 10; `0.5` es una cada dos segundos) o `FUNNELCHAT_RATE`. Los límites por minuto de la API se cuentan por usuario y tu panel los comparte: súbelo con cuidado.
 - **`429` y `503`:** la CLI espera exactamente lo que dice `Retry-After` y reintenta. Si pide más de 60 segundos (`--max-wait` lo cambia), corta con código `5` y te dice cuándo se reinicia.
 - **Errores del servidor y de red:** reintenta con espera exponencial (1 s, 2 s, 4 s… hasta 30 s), hasta 4 veces; también un `502 origin_unreachable` de la entrada de la API. **Solo reintenta lecturas**; la CLI no hace otra cosa. Un `500 edge_misconfigured` no se reintenta: es un problema de configuración de nuestro lado y esperar no lo arregla.
 - **El tope diario:** accounts y communities admiten hasta 10.000 llamadas por día por clave, cada una por su lado; conversations no tiene tope diario. Las exportaciones de contactos y conversaciones usan solo conversations; `whoami` y `numbers` usan accounts. Si se alcanza, la CLI corta con un mensaje claro y la hora del reinicio, y la exportación queda para retomar.
@@ -326,10 +326,10 @@ funnelchat contacts export --output-dir ./contactos --resume
 **`--json`** en cualquier comando: el resultado sale en stdout como un solo documento JSON; el progreso y los avisos van a stderr. Un error es un objeto JSON en stderr:
 
 ```json
-{"error":{"code":"daily_cap_exceeded","message":"Se alcanzó el tope diario de llamadas de accounts para esta clave. Se reinicia en 8 h 30 min (a las 20:30 UTC del 2026-10-16).","hint":"Id del pedido (X-Request-Id): 3f6c1a52-8d0e-4b7a-9c1e-5a2b7d4e9f10. Citalo, con la hora aproximada, si lo reportás a soporte.","exit_code":5,"status":429,"route":"GET /api/v1/devices","api_error":"daily_cap_exceeded","retry_after":30600,"request_id":"3f6c1a52-8d0e-4b7a-9c1e-5a2b7d4e9f10","resets_at":"2026-10-16T20:30:00.000Z"}}
+{"error":{"code":"daily_cap_exceeded","message":"Se alcanzó el tope diario de llamadas de accounts para esta clave. Se reinicia en 8 h 30 min (a las 20:30 UTC del 2026-10-16).","hint":"Id del pedido (X-Request-Id): 3f6c1a52-8d0e-4b7a-9c1e-5a2b7d4e9f10. Cítalo, con la hora aproximada, si lo reportas a soporte.","exit_code":5,"status":429,"route":"GET /api/v1/devices","api_error":"daily_cap_exceeded","retry_after":30600,"request_id":"3f6c1a52-8d0e-4b7a-9c1e-5a2b7d4e9f10","resets_at":"2026-10-16T20:30:00.000Z"}}
 ```
 
-**El id del pedido.** Cada respuesta de la API trae `X-Request-Id`, también los errores. La CLI lo muestra en cada error que vino de la API (en `request_id` con `--json`) y en cada respuesta con `--verbose`. Si reportás un problema, citalo junto con la hora aproximada: con ese id soporte encuentra la llamada. Un error de red no tiene id: la API nunca respondió.
+**El id del pedido.** Cada respuesta de la API trae `X-Request-Id`, también los errores. La CLI lo muestra en cada error que vino de la API (en `request_id` con `--json`) y en cada respuesta con `--verbose`. Si reportas un problema, cítalo junto con la hora aproximada: con ese id soporte encuentra la llamada. Un error de red no tiene id: la API nunca respondió.
 
 **Otras opciones globales:** `-q`/`--quiet` (sin progreso), `-v`/`--verbose` (cada pedido a la API, con método, URL, código, tiempo y `X-Request-Id`; nunca la clave).
 
@@ -377,7 +377,7 @@ npm run lint && npm run typecheck
 npm run build
 ```
 
-Para desarrollar necesitás Node 20 o posterior (por las herramientas de tests); la CLI que se construye corre en Node 18.
+Para desarrollar necesitas Node 20 o posterior (por las herramientas de tests); la CLI que se construye corre en Node 18.
 
 **Los tests** usan respuestas simuladas, con las mismas formas que la API (páginas por número y por cursor). Cubren la paginación, retomar, los `429`, que la clave no aparezca en ninguna salida ni en ningún archivo, que no se pise un archivo y el SHA-256 del manifiesto.
 

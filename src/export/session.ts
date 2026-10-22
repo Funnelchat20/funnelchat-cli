@@ -65,13 +65,13 @@ export class ExportSession<S extends BaseState> {
 
     if (!options.resume) {
       if (existsSync(dir)) {
-        if (!statSync(dir).isDirectory()) throw exists(dir, 'Elegí una carpeta con --output-dir.');
+        if (!statSync(dir).isDirectory()) throw exists(dir, 'Elige una carpeta con --output-dir.');
         if (readdirSync(dir).length > 0) {
           throw exists(
             dir,
             existsSync(statePath)
-              ? `Hay una exportación sin terminar en esa carpeta: retomala con\n  funnelchat ${options.kind} export --output-dir ${quote(options.dir)} --resume`
-              : 'Elegí una carpeta nueva o vacía con --output-dir: la CLI nunca pisa archivos.',
+              ? `Hay una exportación sin terminar en esa carpeta: retómala con\n  funnelchat ${options.kind} export --output-dir ${quote(options.dir)} --resume`
+              : 'Elige una carpeta nueva o vacía con --output-dir: la CLI nunca pisa archivos.',
           );
         }
       }
@@ -84,14 +84,14 @@ export class ExportSession<S extends BaseState> {
 
     if (!existsSync(statePath)) {
       if (existsSync(join(dir, MANIFEST_FILE))) return { alreadyComplete: join(dir, MANIFEST_FILE) };
-      throw usageError(`No hay una exportación para retomar en ${dir}.`, 'Pasá la misma --output-dir de la exportación que se cortó.');
+      throw usageError(`No hay una exportación para retomar en ${dir}.`, 'Pasa la misma --output-dir de la exportación que se cortó.');
     }
     const state = readState<S>(statePath);
     if (state.kind !== options.kind) {
-      throw usageError(`Esa carpeta tiene una exportación de ${state.kind}, no de ${options.kind}.`, `Retomala con \`funnelchat ${state.kind} export --output-dir ${quote(options.dir)} --resume\`.`);
+      throw usageError(`Esa carpeta tiene una exportación de ${state.kind}, no de ${options.kind}.`, `Retómala con \`funnelchat ${state.kind} export --output-dir ${quote(options.dir)} --resume\`.`);
     }
     if (state.base_url !== options.baseUrl) {
-      throw usageError(`Esa exportación se hizo contra ${state.base_url} y ahora la URL base es ${options.baseUrl}.`, 'Retomala con la misma URL base (y la misma clave) que la original.');
+      throw usageError(`Esa exportación se hizo contra ${state.base_url} y ahora la URL base es ${options.baseUrl}.`, 'Retómala con la misma URL base (y la misma clave) que la original.');
     }
     const differences = [...options.explicit]
       .filter((key) => JSON.stringify(options.options[key] ?? null) !== JSON.stringify(state.options[key] ?? null))
@@ -137,10 +137,10 @@ function readState<S extends BaseState>(path: string): S {
   try {
     parsed = JSON.parse(readFileSync(path, 'utf8'));
   } catch {
-    throw usageError(`El estado de la exportación (${path}) no se puede leer.`, 'Empezá la exportación de nuevo en otra carpeta.');
+    throw usageError(`El estado de la exportación (${path}) no se puede leer.`, 'Empieza la exportación de nuevo en otra carpeta.');
   }
   if (!isRecord(parsed) || parsed.state_version !== 1 || typeof parsed.kind !== 'string') {
-    throw usageError(`El estado de la exportación (${path}) no es de esta versión de la CLI.`, 'Empezá la exportación de nuevo en otra carpeta.');
+    throw usageError(`El estado de la exportación (${path}) no es de esta versión de la CLI.`, 'Empieza la exportación de nuevo en otra carpeta.');
   }
   return parsed as unknown as S;
 }
@@ -160,7 +160,7 @@ function lock(dir: string): void {
         throw new CliError(`Otra ejecución de la CLI (proceso ${pid}) está usando ${dir}.`, {
           exitCode: ExitCode.EXISTS,
           code: 'export_locked',
-          hint: 'Esperá a que termine, o cortala, y volvé a intentar.',
+          hint: 'Espera a que termine, o córtala, y vuelve a intentar.',
         });
       }
       unlinkSync(path);

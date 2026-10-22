@@ -122,7 +122,7 @@ function mergePending(spec, pending) {
 
   for (const [name, schema] of Object.entries(pending.components?.schemas ?? {})) {
     if (merged.components.schemas[name]) {
-      throw new Error(`spec/pending.json: el esquema ${name} ya existe en la instantánea; renombralo.`);
+      throw new Error(`spec/pending.json: el esquema ${name} ya existe en la instantánea; renómbralo.`);
     }
     merged.components.schemas[name] = schema;
   }
@@ -262,13 +262,13 @@ function render(routes, provenance) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.spec) importSpec(args.spec);
-  if (!existsSync(SPEC_FILE)) throw new Error('Falta spec/funnelchat.json: corré `npm run generate -- --spec <archivo>`.');
+  if (!existsSync(SPEC_FILE)) throw new Error('Falta spec/funnelchat.json: ejecuta `npm run generate -- --spec <archivo>`.');
 
   const spec = JSON.parse(readFileSync(SPEC_FILE, 'utf8'));
   const provenance = existsSync(PROVENANCE_FILE) ? JSON.parse(readFileSync(PROVENANCE_FILE, 'utf8')) : null;
   const actualHash = sha256(readFileSync(SPEC_FILE));
   if (provenance && provenance.sha256 !== actualHash) {
-    throw new Error('spec/funnelchat.json no coincide con el sha256 de spec/procedencia.json: importala con --spec.');
+    throw new Error('spec/funnelchat.json no coincide con el sha256 de spec/procedencia.json: impórtala con --spec.');
   }
   const pending = existsSync(PENDING_FILE) ? JSON.parse(readFileSync(PENDING_FILE, 'utf8')) : {};
   const used = JSON.parse(readFileSync(USED_FILE, 'utf8')).routes;
@@ -286,7 +286,7 @@ function main() {
   if (args.check) {
     const current = existsSync(OUT_FILE) ? readFileSync(OUT_FILE, 'utf8') : '';
     if (current !== output) {
-      console.error('src/generated/routes.ts no está al día: corré `npm run generate`.');
+      console.error('src/generated/routes.ts no está al día: ejecuta `npm run generate`.');
       process.exit(1);
     }
     console.log('src/generated/routes.ts está al día.');
