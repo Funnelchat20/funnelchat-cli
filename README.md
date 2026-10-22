@@ -269,7 +269,7 @@ MACs in the period: 120 of 1,000 (12 %) · 880 left
 {
   "manifest_version": 1,
   "kind": "conversations",
-  "generator": { "name": "@funnelchat-hq/cli", "version": "0.1.0" },
+  "generator": { "name": "@funnelchat-hq/cli", "version": "0.1.1" },
   "api": { "base_url": "https://api.funnelchat.com", "spec": { "commit": "0ef4abb…", "sha256": "8bbbae5…" }, "routes": [ … ] },
   "started_at": "2026-10-16T12:00:00.000Z",
   "finished_at": "2026-10-16T12:41:10.000Z",

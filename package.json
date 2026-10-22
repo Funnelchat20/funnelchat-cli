@@ -1,6 +1,6 @@
 {
   "name": "@funnelchat-hq/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Funnelchat CLI to export conversations and contacts through the public API, and check numbers, templates and MACs",
   "license": "MIT",
   "author": {
