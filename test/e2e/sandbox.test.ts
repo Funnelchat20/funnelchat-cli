@@ -115,4 +115,26 @@ describe.skipIf(!SANDBOX_DIR)('end to end against funnelchat-sandbox', () => {
     expect(result.code).toBe(4);
     expect(result.stderr).toContain('#2350');
   });
+
+  it('an API error carries the X-Request-Id the sandbox sent', async () => {
+    const seen: string[] = [];
+    const recording: typeof fetch = async (input, init) => {
+      const response = await fetch(input, init);
+      seen.push(response.headers.get('x-request-id') ?? '');
+      return response;
+    };
+    const result = await cli(['--json', 'templates', 'metrics', '45'], { fetch: recording, cwd: tempDir(), env: env() });
+    expect(result.code).toBe(4);
+    // funnelchat-sandbox feat/inicial @ 7a1b3d8 (2026-10-22) does not send the header yet: then the CLI
+    // must not make one up. Once it does, the CLI must carry exactly that one.
+    const id = seen.at(-1);
+    expect(JSON.parse(result.stderr).error.request_id).toBe(id === '' ? undefined : id);
+  });
+
+  it("numbers list keeps the API's capabilities apart from the CLI's", async () => {
+    const numbers = JSON.parse((await cli(['--json', 'numbers', 'list'], { fetch, cwd: tempDir(), env: env() })).stdout).numbers;
+    for (const number of numbers) expect(Array.isArray(number.cli_capabilities)).toBe(true);
+    const withCapabilities = numbers.filter((n: { capabilities?: unknown }) => n.capabilities !== undefined);
+    for (const number of withCapabilities) expect(Array.isArray(number.capabilities)).toBe(false);
+  });
 });
