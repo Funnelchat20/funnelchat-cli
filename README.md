@@ -7,7 +7,7 @@ funnelchat contacts export --output-dir ./mis-contactos
 funnelchat conversations export --since 2026-10-01 --output-dir ./octubre
 ```
 
-> **Estado: v0, en desarrollo.** La API pública está en v0 y cambia sin aviso. La CLI todavía no está publicada en npm (el paquete es `private`, para que no se publique por accidente). Una parte depende de un PR sin mergear: está en [Lo que depende de PRs sin mergear](#lo-que-depende-de-prs-sin-mergear).
+> **Estado: v0.** La API pública está en v0 y puede cambiar. Una parte de la CLI depende de un PR sin mergear: está en [Lo que depende de PRs sin mergear](#lo-que-depende-de-prs-sin-mergear). La referencia de la API está en el [portal de desarrolladores](https://developers-portal.funnelchat.app/docs/).
 
 ## Qué hace y qué no
 
@@ -20,15 +20,33 @@ funnelchat conversations export --since 2026-10-01 --output-dir ./octubre
 Necesitás Node 18 o posterior.
 
 ```bash
-git clone git@github.com:Funnelchat20/funnelchat-cli.git
+npm install --global funnelchat-cli
+funnelchat --version
+```
+
+O sin instalarla: `npx funnelchat-cli --version`.
+
+### Un ejemplo mínimo
+
+```bash
+funnelchat login                                   # pegá tu clave; no se muestra
+funnelchat whoami                                  # a qué cuenta pertenece
+funnelchat contacts export --output-dir ./mis-contactos
+```
+
+Deja `mis-contactos/contacts.csv` y `mis-contactos/manifest.json`, con el SHA-256 de cada archivo.
+
+### Desde el código
+
+```bash
+git clone https://github.com/Funnelchat20/funnelchat-cli.git
 cd funnelchat-cli
 npm install
 npm run build
 npm link            # deja el comando `funnelchat` disponible en tu terminal
-funnelchat --version
 ```
 
-Sin `npm link`, corré `node dist/cli.js` en lugar de `funnelchat`. Cuando se publique, va a alcanzar con `npm install --global funnelchat-cli`.
+Sin `npm link`, corré `node dist/cli.js` en lugar de `funnelchat`.
 
 ## Autenticación
 
@@ -113,12 +131,12 @@ funnelchat numbers list
 ```
 
 ```
-id  alias      número         conexión  conectado  salud      qué se puede
+id  alias      número         conexión  conectado  salud      qué lee la CLI
 3   Ventas     5491100000001  oficial   sí         AVAILABLE  contactos, conversaciones, plantillas, métricas de plantillas, salud y límite
 4   Soporte    5491100000002  QR        sí         -          contactos, conversaciones
 ```
 
-«Qué se puede» lo deduce la CLI del tipo de conexión (`provider`): la API no lo lista. Los números oficiales (API de WhatsApp Cloud) tienen plantillas, métricas y salud; los de QR, no.
+«Qué lee la CLI» lo deduce la CLI del tipo de conexión (`provider`): los números oficiales (API de WhatsApp Cloud) tienen plantillas, métricas y salud; los de QR, no. Con `--json` sale como `cli_capabilities`. El campo `capabilities` de cada número es otra cosa: lo que la API puede hacer con él (tipos de mensaje, grupos, estados que informa), tal como lo devuelve `GET /api/v1/devices`, sin tocar.
 
 ### `funnelchat numbers health`
 
@@ -248,7 +266,7 @@ Plantilla 45 · 2026-09-01 a 2026-09-30 (UTC) · leído de Meta 2026-10-16T12:00
 
 ### `funnelchat mac status`
 
-Cuántos contactos activos del mes (MACs) llevás en el período, el límite y cuántos te quedan.
+Cuántos contactos activos del mes (MACs) llevás en el período, el límite y cuántos te quedan. Si tu cuenta tiene el control de MAC por contacto, también cuántos contactos quedaron inactivos: a esos la API no les deja mandar mensajes con clave (`429 mac_lockout_24h`).
 
 ```bash
 funnelchat mac status
@@ -320,7 +338,7 @@ funnelchat contacts export --output-dir ./contactos --resume
 
 - **Ritmo bajo:** como máximo 1 llamada por segundo, reintentos incluidos. Lo cambiás con `--rate` (mayor que 0 y hasta 10; `0.5` es una cada dos segundos) o `FUNNELCHAT_RATE`. Los límites por minuto de la API se cuentan por usuario y tu panel los comparte: subilo con cuidado.
 - **`429` y `503`:** la CLI espera exactamente lo que dice `Retry-After` y reintenta. Si pide más de 60 segundos (`--max-wait` lo cambia), corta con código `5` y te dice cuándo se reinicia.
-- **Errores del servidor y de red:** reintenta con espera exponencial (1 s, 2 s, 4 s… hasta 30 s), hasta 4 veces. **Solo reintenta lecturas**; la CLI no hace otra cosa.
+- **Errores del servidor y de red:** reintenta con espera exponencial (1 s, 2 s, 4 s… hasta 30 s), hasta 4 veces; también un `502 origin_unreachable` de la entrada de la API. **Solo reintenta lecturas**; la CLI no hace otra cosa. Un `500 edge_misconfigured` no se reintenta: es un problema de configuración de nuestro lado y esperar no lo arregla.
 - **El tope diario:** accounts y communities admiten hasta 10.000 llamadas por día por clave, cada una por su lado; conversations no tiene tope diario. Las exportaciones de contactos y conversaciones usan solo conversations; `whoami` y `numbers` usan accounts. Si se alcanza, la CLI corta con un mensaje claro y la hora del reinicio, y la exportación queda para retomar.
 
 ## Para scripts
@@ -328,10 +346,12 @@ funnelchat contacts export --output-dir ./contactos --resume
 **`--json`** en cualquier comando: el resultado sale en stdout como un solo documento JSON; el progreso y los avisos van a stderr. Un error es un objeto JSON en stderr:
 
 ```json
-{"error":{"code":"daily_cap_exceeded","message":"Se alcanzó el tope diario de llamadas de accounts para esta clave. Se reinicia en 8 h 30 min (a las 20:30 UTC del 2026-10-16).","exit_code":5,"status":429,"route":"GET /api/v1/devices","api_error":"daily_cap_exceeded","retry_after":30600,"resets_at":"2026-10-16T20:30:00.000Z"}}
+{"error":{"code":"daily_cap_exceeded","message":"Se alcanzó el tope diario de llamadas de accounts para esta clave. Se reinicia en 8 h 30 min (a las 20:30 UTC del 2026-10-16).","hint":"Id del pedido (X-Request-Id): 3f6c1a52-8d0e-4b7a-9c1e-5a2b7d4e9f10. Citalo, con la hora aproximada, si lo reportás a soporte.","exit_code":5,"status":429,"route":"GET /api/v1/devices","api_error":"daily_cap_exceeded","retry_after":30600,"request_id":"3f6c1a52-8d0e-4b7a-9c1e-5a2b7d4e9f10","resets_at":"2026-10-16T20:30:00.000Z"}}
 ```
 
-**Otras opciones globales:** `-q`/`--quiet` (sin progreso), `-v`/`--verbose` (cada pedido a la API, con método, URL, código y tiempo; nunca la clave).
+**El id del pedido.** Cada respuesta de la API trae `X-Request-Id`, también los errores. La CLI lo muestra en cada error que vino de la API (en `request_id` con `--json`) y en cada respuesta con `--verbose`. Si reportás un problema, citalo junto con la hora aproximada: con ese id soporte encuentra la llamada. Un error de red no tiene id: la API nunca respondió.
+
+**Otras opciones globales:** `-q`/`--quiet` (sin progreso), `-v`/`--verbose` (cada pedido a la API, con método, URL, código, tiempo y `X-Request-Id`; nunca la clave).
 
 ### Códigos de salida
 
@@ -341,7 +361,7 @@ funnelchat contacts export --output-dir ./contactos --resume
 | `1` | Un error inesperado. |
 | `2` | Uso incorrecto: una opción o un valor inválido, o `--resume` con opciones distintas de las originales. |
 | `3` | Sin clave, una clave que la API rechaza (`401`) o sin el permiso que pide la ruta (`403`). |
-| `4` | No existe en tu cuenta (`404`). |
+| `4` | No existe en tu cuenta (`404`), o la ruta no existe en la API (`404 route_not_found`). |
 | `5` | Un límite de la API que la CLI no espera sola: tope diario, límite por hora o un `Retry-After` largo. Se puede retomar. |
 | `6` | La API falló (`5xx`, `422`…) o no se pudo conectar, después de los reintentos. |
 | `7` | La salida ya existe: la CLI nunca pisa un archivo. |
@@ -362,8 +382,8 @@ La CLI usa solo rutas que existen en la especificación pública (`spec/routes-u
 
 ## Lo que depende de PRs sin mergear
 
-- **`templates metrics`** usa `GET /api/v1/templates/{template}/metrics`, de conversations [PR #2350](https://github.com/Funnelchat20/conversations/pull/2350) (rama `feat/metricas-plantillas-api` @ `0626c14ff`, apilado sobre `feat/armar-funnelchat-f1`). La forma de la respuesta se tomó de su código. Está en `spec/pending.json` y en `src/commands/templates.ts`, marcada como pendiente.
-- **La especificación** (`spec/funnelchat.json`) es la instantánea unificada del portal, de developers-portal [PR #11](https://github.com/Funnelchat20/developers-portal/pull/11) (rama `feat/openapi-unificada` @ `0ef4abb`), sin mergear.
+- **`templates metrics`** usa `GET /api/v1/templates/{template}/metrics`, de conversations [PR #2350](https://github.com/Funnelchat20/conversations/pull/2350) (rama `feat/metricas-plantillas-api` @ `0626c14ff`, apilado sobre `feat/armar-funnelchat-f1`; seguía abierto el 22-10). La forma de la respuesta se tomó de su código. Está en `spec/pending.json` y en `src/commands/templates.ts`, marcada como pendiente. Hasta que se despliegue, la API responde `404` como si la plantilla no existiera, y la CLI dice las dos cosas.
+- **La especificación** (`spec/funnelchat.json`) es la instantánea unificada del portal, de developers-portal [PR #11](https://github.com/Funnelchat20/developers-portal/pull/11) (rama `feat/openapi-unificada` @ `0ef4abb`, mergeado en `main` el 2026-10-21), armada con las instantáneas de los dominios del 13-10. El 22-10 se revisó cada comando contra el código en production (conversations `v1.18.10`, accounts `v1.4.24`, api-edge `v0.3.0`): las rutas y los parámetros que usa la CLI no cambiaron.
 
 ## Desarrollo
 
@@ -395,3 +415,7 @@ npm run generate:check                                                       # �
 ```
 
 Si una instantánea nueva trae la ruta de métricas de plantillas, la generación avisa que se puede borrar de `spec/pending.json`.
+
+## Licencia
+
+MIT. Ver [LICENSE](LICENSE).
