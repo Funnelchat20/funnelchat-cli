@@ -20,7 +20,7 @@
  */
 import { ApiError, ConnectionError, ExitCode, InterruptedError, parseRetryAfter } from '../errors.js';
 import type { RouteInfo } from '../generated/routes.js';
-import { CLI_NAME, VERSION } from '../version.js';
+import { USER_AGENT_PRODUCT, VERSION } from '../version.js';
 import { extractItems, followingPage, type PageQuery } from './pagination.js';
 import type { Pacer, Sleep } from './pacer.js';
 import { interpolatePath, joinUrl, serializeQuery } from './url.js';
@@ -117,7 +117,7 @@ export class ApiClient {
     const headers: Record<string, string> = {
       Accept: 'application/json',
       'Accept-Language': 'es',
-      'User-Agent': `${CLI_NAME}/${VERSION} node/${process.version}`,
+      'User-Agent': `${USER_AGENT_PRODUCT}/${VERSION} node/${process.version}`,
       Authorization: `Bearer ${this.#apiKey}`,
     };
 

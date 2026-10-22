@@ -26,7 +26,7 @@ describe('manifest', () => {
       expect(file.rows).toBe(lines(path));
     }
     expect(manifest.counts).toEqual({ conversations: 5, messages: 35, message_parts: manifest.files.length - 1, vanished_contacts: 0 });
-    expect(manifest.generator).toEqual({ name: 'funnelchat-cli', version: VERSION });
+    expect(manifest.generator).toEqual({ name: '@funnelchat-hq/cli', version: VERSION });
     expect(manifest.api.spec.sha256).toBe(SPEC_SOURCE.sha256);
     expect(manifest.range.since).toBe('2026-10-01T00:00:00+00:00');
     expect(manifest.range.observed_first_message_time).toBe('2026-10-01 10:00:00');

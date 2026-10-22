@@ -12,7 +12,7 @@ import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, 
 import { join, resolve } from 'node:path';
 import { CliError, ExitCode, isRecord, usageError } from '../errors.js';
 import { SPEC_SOURCE, type RouteInfo } from '../generated/routes.js';
-import { CLI_NAME, VERSION } from '../version.js';
+import { PACKAGE_NAME, VERSION } from '../version.js';
 import { type FileEntry, writeAtomic, writeNewFile } from './files.js';
 
 export const STATE_FILE = '.funnelchat-export.json';
@@ -210,7 +210,7 @@ export function baseManifest(state: BaseState, used: RouteInfo[], finishedAt: st
   return {
     manifest_version: 1,
     kind: state.kind,
-    generator: { name: CLI_NAME, version: VERSION },
+    generator: { name: PACKAGE_NAME, version: VERSION },
     api: {
       base_url: state.base_url,
       spec: { source: SPEC_SOURCE.branch ? `developers-portal ${SPEC_SOURCE.branch}` : null, commit: SPEC_SOURCE.commit, sha256: SPEC_SOURCE.sha256 },

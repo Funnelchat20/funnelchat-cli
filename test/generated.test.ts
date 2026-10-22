@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { routes, SPEC_SOURCE } from '../src/generated/routes.js';
-import { VERSION } from '../src/version.js';
+import { PACKAGE_NAME, VERSION } from '../src/version.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -42,5 +42,9 @@ describe('generated route table', () => {
 
   it('the version matches package.json', () => {
     expect(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version).toBe(VERSION);
+  });
+
+  it('the package name matches package.json', () => {
+    expect(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).name).toBe(PACKAGE_NAME);
   });
 });

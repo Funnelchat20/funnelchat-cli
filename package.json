@@ -1,5 +1,5 @@
 {
-  "name": "funnelchat-cli",
+  "name": "@funnelchat-hq/cli",
   "version": "0.1.0",
   "description": "Funnelchat CLI to export conversations and contacts through the public API, and check numbers, templates and MACs",
   "license": "MIT",
@@ -35,6 +35,9 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "generate": "node scripts/generate.mjs",
     "generate:check": "node scripts/generate.mjs --check",

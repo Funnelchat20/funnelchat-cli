@@ -1,4 +1,4 @@
-# funnelchat-cli
+# @funnelchat-hq/cli
 
 The Funnelchat CLI to **export your conversations and your contacts** through the public API, and check your numbers, your templates and your MACs, with your integrator key. It writes files you can verify, never overwrites one that already exists and, if it gets interrupted, picks up where it left off.
 
@@ -20,11 +20,11 @@ funnelchat conversations export --since 2026-10-01 --output-dir ./october
 You need Node 18 or later.
 
 ```bash
-npm install --global funnelchat-cli
+npm install --global @funnelchat-hq/cli
 funnelchat --version
 ```
 
-Or without installing it: `npx funnelchat-cli --version`.
+Or without installing it: `npx @funnelchat-hq/cli --version`.
 
 ### A minimal example
 
@@ -269,7 +269,7 @@ MACs in the period: 120 of 1,000 (12 %) · 880 left
 {
   "manifest_version": 1,
   "kind": "conversations",
-  "generator": { "name": "funnelchat-cli", "version": "0.1.0" },
+  "generator": { "name": "@funnelchat-hq/cli", "version": "0.1.0" },
   "api": { "base_url": "https://api.funnelchat.com", "spec": { "commit": "0ef4abb…", "sha256": "8bbbae5…" }, "routes": [ … ] },
   "started_at": "2026-10-16T12:00:00.000Z",
   "finished_at": "2026-10-16T12:41:10.000Z",
