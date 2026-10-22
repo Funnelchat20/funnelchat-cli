@@ -16,25 +16,25 @@ import { templatesList, type TemplatesListFlags } from './commands/templates.js'
 import { VERSION } from './version.js';
 
 const EXIT_CODES_HELP = `
-Códigos de salida:
-  0    todo bien
-  1    error inesperado
-  2    uso incorrecto (opción o valor inválido)
-  3    sin clave, clave rechazada (401) o sin permiso (403)
-  4    no existe en tu cuenta (404)
-  5    límite de la API que la CLI no espera (tope diario o un Retry-After largo): se puede retomar
-  6    error de la API o de red, después de los reintentos
-  7    la salida ya existe: la CLI nunca pisa un archivo
-  130  interrumpido con Ctrl+C: una exportación se puede retomar
+Exit codes:
+  0    all good
+  1    unexpected error
+  2    wrong usage (invalid option or value)
+  3    no key, a key the API rejects (401) or a missing permission (403)
+  4    not found in your account (404)
+  5    an API limit the CLI does not wait for (daily cap or a long Retry-After): it can be resumed
+  6    API or network error, after the retries
+  7    the output already exists: the CLI never overwrites a file
+  130  interrupted with Ctrl+C: an export can be resumed
 
-Variables de entorno:
-  FUNNELCHAT_API_KEY     la clave (gana sobre el perfil guardado, salvo con --profile)
-  FUNNELCHAT_PROFILE     el perfil a usar
-  FUNNELCHAT_BASE_URL    la URL base
-  FUNNELCHAT_RATE        pedidos por segundo
-  FUNNELCHAT_CONFIG_DIR  dónde guardar la configuración
+Environment variables:
+  FUNNELCHAT_API_KEY     the key (wins over the saved profile, except with --profile)
+  FUNNELCHAT_PROFILE     the profile to use
+  FUNNELCHAT_BASE_URL    the base URL
+  FUNNELCHAT_RATE        requests per second
+  FUNNELCHAT_CONFIG_DIR  where to keep the configuration
 
-La CLI solo lee: no manda mensajes ni modifica nada de tu cuenta.`;
+The CLI only reads: it sends no messages and changes nothing in your account.`;
 
 type Action = (ctx: ContextType, command: Command, ...args: unknown[]) => Promise<void> | void;
 
@@ -43,18 +43,18 @@ export async function run(argv: string[], io: Io): Promise<number> {
 
   const program = new Command('funnelchat');
   program
-    .description('Exporta conversaciones y contactos de tu cuenta de Funnelchat desde la API pública, y consulta tus números, plantillas y MACs.')
-    .version(VERSION, '-V, --version', 'Muestra la versión.')
-    .helpOption('-h, --help', 'Muestra la ayuda.')
-    .helpCommand('help [comando]', 'Muestra la ayuda de un comando.')
-    .option('--profile <nombre>', 'Perfil de configuración a usar.')
-    .option('--base-url <url>', 'URL base de la API (por defecto https://api.funnelchat.com).')
-    .option('--staging', 'Usa la API de staging (https://api-staging.funnelchat.com).')
-    .option('--json', 'Salida en JSON, para scripts.')
-    .option('-v, --verbose', 'Muestra cada pedido a la API (nunca la clave).')
-    .option('-q, --quiet', 'Sin mensajes de progreso.')
-    .option('--rate <pedidos>', 'Pedidos por segundo como máximo (por defecto 1).')
-    .option('--max-wait <segundos>', 'Cuánto esperar sola un Retry-After antes de cortar (por defecto 60).')
+    .description('Export conversations and contacts from your Funnelchat account through the public API, and check your numbers, templates and MACs.')
+    .version(VERSION, '-V, --version', 'Shows the version.')
+    .helpOption('-h, --help', 'Shows the help.')
+    .helpCommand('help [command]', 'Shows the help of a command.')
+    .option('--profile <name>', 'Configuration profile to use.')
+    .option('--base-url <url>', 'Base URL of the API (https://api.funnelchat.com by default).')
+    .option('--staging', 'Uses the staging API (https://api-staging.funnelchat.com).')
+    .option('--json', 'JSON output, for scripts.')
+    .option('-v, --verbose', 'Shows every request to the API (never the key).')
+    .option('-q, --quiet', 'No progress messages.')
+    .option('--rate <requests>', 'Requests per second at most (1 by default).')
+    .option('--max-wait <seconds>', 'How long to wait for a Retry-After on its own before stopping (60 by default).')
     .addHelpText('after', EXIT_CODES_HELP)
     .showSuggestionAfterError(true)
     .exitOverride()
@@ -77,73 +77,73 @@ export async function run(argv: string[], io: Io): Promise<number> {
   // --- account ---------------------------------------------------------------------------------
   program
     .command('login')
-    .description('Guarda tu clave de API en un perfil (archivo con permisos 0600). La lee del teclado sin mostrarla, o de la entrada estándar.')
-    .option('--no-verify', 'No la prueba contra la API antes de guardarla.')
+    .description('Saves your API key in a profile (a file with 0600 permissions). Reads it from the keyboard without showing it, or from standard input.')
+    .option('--no-verify', 'Does not check it against the API before saving it.')
     .action(action((ctx, command) => login(ctx, command.opts())));
 
   program
     .command('logout')
-    .description('Borra la clave guardada del perfil activo (o del de --profile).')
+    .description('Deletes the saved key of the active profile (or of --profile).')
     .action(action((ctx) => logout(ctx)));
 
   program
     .command('whoami')
-    .description('Muestra a qué cuenta pertenece la clave, sin mostrar la clave.')
+    .description('Shows which account the key belongs to, without showing the key.')
     .action(action((ctx) => whoami(ctx)));
 
-  const profiles = program.command('profiles').description('Perfiles guardados.');
+  const profiles = program.command('profiles').description('Saved profiles.');
   profiles
     .command('list', { isDefault: true })
-    .description('Lista los perfiles (nunca muestra las claves).')
+    .description('Lists the profiles (never shows the keys).')
     .action(action((ctx) => profilesList(ctx)));
   profiles
     .command('use')
-    .argument('<nombre>', 'Perfil a activar.')
-    .description('Elige el perfil que se usa por defecto.')
+    .argument('<name>', 'Profile to activate.')
+    .description('Chooses the profile used by default.')
     .action(action((ctx, _command, name) => profilesUse(ctx, name as string)));
 
   // --- numbers ---------------------------------------------------------------------------------
-  const numbers = program.command('numbers').description('Tus números de WhatsApp.');
+  const numbers = program.command('numbers').description('Your WhatsApp numbers.');
   numbers
     .command('list')
-    .description('Lista los números, con su conexión y lo que la CLI puede exportar o leer de cada uno.')
+    .description('Lists the numbers, with their connection and what the CLI can export or read for each one.')
     .action(action((ctx) => numbersList(ctx)));
   numbers
     .command('health')
-    .argument('[números...]', 'Ids de los números (por defecto, todos los oficiales).')
-    .description('Salud, calidad, límite de mensajes y throughput de los números oficiales.')
+    .argument('[numbers...]', 'Ids of the numbers (all the official ones by default).')
+    .description('Health, quality, messaging limit and throughput of the official numbers.')
     .action(action((ctx, _command, ids) => numbersHealth(ctx, (ids as string[]) ?? [])));
 
   // --- contacts --------------------------------------------------------------------------------
-  const contacts = program.command('contacts').description('Contactos.');
+  const contacts = program.command('contacts').description('Contacts.');
   contacts
     .command('export')
-    .description('Exporta los contactos con sus etiquetas y campos personalizados, en CSV o JSONL.')
-    .option('-o, --output-dir <carpeta>', 'Carpeta nueva o vacía para la exportación (por defecto funnelchat-contacts-export-<fecha>).')
-    .option('--format <formato>', 'csv (por defecto) o jsonl.')
-    .option('--tag <id>', 'Solo contactos con esta etiqueta (se puede repetir o separar con comas).', collect)
-    .option('--tag-mode <modo>', 'Con varias --tag: any (alguna, por defecto), all (todas) o exclude (ninguna).')
-    .option('--created-from <fecha>', 'Creados desde esta fecha (AAAA-MM-DD, el día entero). Va con --created-to.')
-    .option('--created-to <fecha>', 'Creados hasta esta fecha (AAAA-MM-DD, el día entero). Va con --created-from.')
-    .option('--only-with-phone', 'Solo contactos a los que se les puede escribir.')
-    .option('--no-tags', 'Sin etiquetas (una consulta menos por contacto).')
-    .option('--no-custom-fields', 'Sin campos personalizados (una consulta menos por contacto).')
-    .option('--resume', 'Retoma una exportación cortada en --output-dir, desde la última página guardada.')
+    .description('Exports the contacts with their tags and custom fields, as CSV or JSONL.')
+    .option('-o, --output-dir <dir>', 'New or empty folder for the export (funnelchat-contacts-export-<date> by default).')
+    .option('--format <format>', 'csv (default) or jsonl.')
+    .option('--tag <id>', 'Only contacts with this tag (can be repeated or comma-separated).', collect)
+    .option('--tag-mode <mode>', 'With several --tag: any (default), all or exclude (none of them).')
+    .option('--created-from <date>', 'Created from this date (YYYY-MM-DD, the whole day). Goes with --created-to.')
+    .option('--created-to <date>', 'Created up to this date (YYYY-MM-DD, the whole day). Goes with --created-from.')
+    .option('--only-with-phone', 'Only contacts that can be messaged.')
+    .option('--no-tags', 'Without tags (one request less per contact).')
+    .option('--no-custom-fields', 'Without custom fields (one request less per contact).')
+    .option('--resume', 'Resumes an interrupted export in --output-dir, from the last saved page.')
     .action(
       action((ctx, command) => contactsExport(ctx, command.opts() as ContactsExportFlags, explicitOptions(command, CONTACTS_FLAG_NAMES))),
     );
 
   // --- conversations ---------------------------------------------------------------------------
-  const conversations = program.command('conversations').description('Conversaciones y sus mensajes.');
+  const conversations = program.command('conversations').description('Conversations and their messages.');
   conversations
     .command('export')
-    .description('Exporta los mensajes de cada conversación en partes JSONL, con un manifiesto.')
-    .option('-o, --output-dir <carpeta>', 'Carpeta nueva o vacía para la exportación (por defecto funnelchat-conversations-export-<fecha>).')
-    .option('--contact <id>', 'Solo la conversación de este contacto (se puede repetir o separar con comas).', collect)
-    .option('--device <id>', 'Solo conversaciones de este número, y de ellas solo sus mensajes.')
-    .option('--since <fecha>', 'Conversaciones y mensajes creados o modificados desde esta fecha (AAAA-MM-DD en UTC, o fecha y hora con zona).')
-    .option('--part-size <mensajes>', `Mensajes por parte (por defecto ${DEFAULT_PART_SIZE.toLocaleString('es-AR')}).`)
-    .option('--resume', 'Retoma una exportación cortada en --output-dir, desde el último cursor guardado.')
+    .description('Exports the messages of every conversation in JSONL parts, with a manifest.')
+    .option('-o, --output-dir <dir>', 'New or empty folder for the export (funnelchat-conversations-export-<date> by default).')
+    .option('--contact <id>', 'Only the conversation of this contact (can be repeated or comma-separated).', collect)
+    .option('--device <id>', 'Only conversations of this number, and of them only its messages.')
+    .option('--since <date>', 'Conversations and messages created or changed since this date (YYYY-MM-DD in UTC, or a date and time with a zone).')
+    .option('--part-size <messages>', `Messages per part (${DEFAULT_PART_SIZE.toLocaleString('en-US')} by default).`)
+    .option('--resume', 'Resumes an interrupted export in --output-dir, from the last saved cursor.')
     .action(
       action((ctx, command) =>
         conversationsExport(ctx, command.opts() as ConversationsExportFlags, explicitOptions(command, CONVERSATIONS_FLAG_NAMES)),
@@ -151,19 +151,19 @@ export async function run(argv: string[], io: Io): Promise<number> {
     );
 
   // --- templates -------------------------------------------------------------------------------
-  const templates = program.command('templates').description('Plantillas de WhatsApp.');
+  const templates = program.command('templates').description('WhatsApp templates.');
   templates
     .command('list')
-    .description('Lista las plantillas, con su estado y su número.')
-    .option('--device <id>', 'Solo las de este número.')
-    .option('--status <estado>', 'APPROVED, PENDING, REJECTED, PAUSED, DISABLED…')
+    .description('Lists the templates, with their status and their number.')
+    .option('--device <id>', 'Only those of this number.')
+    .option('--status <status>', 'APPROVED, PENDING, REJECTED, PAUSED, DISABLED…')
     .action(action((ctx, command) => templatesList(ctx, command.opts() as TemplatesListFlags)));
 
   // --- mac -------------------------------------------------------------------------------------
-  const mac = program.command('mac').description('Contactos activos por mes (MACs).');
+  const mac = program.command('mac').description('Monthly active contacts (MACs).');
   mac
     .command('status')
-    .description('Cuántos MACs llevas en el período, el límite y cuántos te quedan.')
+    .description('How many MACs you have used in the period, the limit and how many are left.')
     .action(action((ctx) => macStatus(ctx)));
 
   for (const command of program.commands) {

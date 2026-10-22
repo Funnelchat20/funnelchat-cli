@@ -40,9 +40,9 @@ function parseArgs(argv) {
     if (arg === '--check') args.check = true;
     else if (arg === '--spec') args.spec = argv[++i];
     else if (arg.startsWith('--spec=')) args.spec = arg.slice('--spec='.length);
-    else throw new Error(`Argumento desconocido: ${arg}`);
+    else throw new Error(`Unknown argument: ${arg}`);
   }
-  if (args.spec === undefined) throw new Error('--spec necesita la ruta del archivo');
+  if (args.spec === undefined) throw new Error('--spec needs the path of the file');
   return args;
 }
 
@@ -75,7 +75,7 @@ function importSpec(source) {
 
   const provenance = {
     description:
-      'De dónde salió spec/funnelchat.json. Lo escribe `npm run generate -- --spec <archivo>`; no lo edites a mano.',
+      'Where spec/funnelchat.json came from. Written by `npm run generate -- --spec <file>`; do not edit it by hand.',
     file: 'spec/funnelchat.json',
     sha256: sha256(bytes),
     bytes: bytes.length,
@@ -109,7 +109,7 @@ function importSpec(source) {
   mkdirSync(dirname(SPEC_FILE), { recursive: true });
   writeFileSync(SPEC_FILE, bytes);
   writeFileSync(PROVENANCE_FILE, `${JSON.stringify(provenance, null, 2)}\n`);
-  console.log(`spec: copiada de ${relPath ?? sourcePath} (${provenance.source.branch ?? '?'} @ ${provenance.source.commit?.slice(0, 7) ?? '?'})`);
+  console.log(`spec: copied from ${relPath ?? sourcePath} (${provenance.source.branch ?? '?'} @ ${provenance.source.commit?.slice(0, 7) ?? '?'})`);
 }
 
 /** Step 2: merge the pending layer into a copy of the snapshot. */
@@ -122,7 +122,7 @@ function mergePending(spec, pending) {
 
   for (const [name, schema] of Object.entries(pending.components?.schemas ?? {})) {
     if (merged.components.schemas[name]) {
-      throw new Error(`spec/pending.json: el esquema ${name} ya existe en la instantánea; renómbralo.`);
+      throw new Error(`spec/pending.json: the schema ${name} already exists in the snapshot; rename it.`);
     }
     merged.components.schemas[name] = schema;
   }
@@ -178,7 +178,7 @@ function acceptsPlainArray(spec, schema) {
 function resolveRoute(spec, used, pending) {
   const label = `${used.method} ${used.path}`;
   const operation = spec.paths?.[used.path]?.[used.method.toLowerCase()];
-  if (!operation) throw new Error(`${label}: la ruta no está en la especificación ni en spec/pending.json.`);
+  if (!operation) throw new Error(`${label}: the route is neither in the spec nor in spec/pending.json.`);
 
   const parameters = [...(spec.paths[used.path].parameters ?? []), ...(operation.parameters ?? [])].map((p) => resolveRef(spec, p));
   const queryParams = new Map(parameters.filter((p) => p?.in === 'query').map((p) => [p.name, p]));
@@ -193,7 +193,7 @@ function resolveRoute(spec, used, pending) {
   const pagination = metaKeys.has('next_cursor') ? 'cursor' : metaKeys.has('current_page') ? 'page' : 'none';
 
   for (const name of used.query) {
-    if (!queryParams.has(name)) throw new Error(`${label}: la especificación no tiene el parámetro de query "${name}".`);
+    if (!queryParams.has(name)) throw new Error(`${label}: the spec has no query parameter "${name}".`);
   }
 
   const perPage = queryParams.get('perPage');
@@ -262,21 +262,21 @@ function render(routes, provenance) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.spec) importSpec(args.spec);
-  if (!existsSync(SPEC_FILE)) throw new Error('Falta spec/funnelchat.json: ejecuta `npm run generate -- --spec <archivo>`.');
+  if (!existsSync(SPEC_FILE)) throw new Error('spec/funnelchat.json is missing: run `npm run generate -- --spec <file>`.');
 
   const spec = JSON.parse(readFileSync(SPEC_FILE, 'utf8'));
   const provenance = existsSync(PROVENANCE_FILE) ? JSON.parse(readFileSync(PROVENANCE_FILE, 'utf8')) : null;
   const actualHash = sha256(readFileSync(SPEC_FILE));
   if (provenance && provenance.sha256 !== actualHash) {
-    throw new Error('spec/funnelchat.json no coincide con el sha256 de spec/procedencia.json: impórtala con --spec.');
+    throw new Error('spec/funnelchat.json does not match the sha256 in spec/procedencia.json: import it with --spec.');
   }
   const pending = existsSync(PENDING_FILE) ? JSON.parse(readFileSync(PENDING_FILE, 'utf8')) : {};
   const used = JSON.parse(readFileSync(USED_FILE, 'utf8')).routes;
 
   const { merged, report } = mergePending(spec, pending);
-  console.log(`pendiente de la especificación: ${report.applied.length} rutas aplicadas (${report.applied.join(', ') || 'ninguna'}).`);
+  console.log(`pending spec layer: ${report.applied.length} routes applied (${report.applied.join(', ') || 'none'}).`);
   if (report.superseded.length) {
-    console.log('la instantánea ya trae estas rutas de spec/pending.json; se pueden borrar de ahí:');
+    console.log('the snapshot already has these routes of spec/pending.json; they can be deleted from there:');
     for (const label of report.superseded) console.log(`  - ${label}`);
   }
 
@@ -286,15 +286,15 @@ function main() {
   if (args.check) {
     const current = existsSync(OUT_FILE) ? readFileSync(OUT_FILE, 'utf8') : '';
     if (current !== output) {
-      console.error('src/generated/routes.ts no está al día: ejecuta `npm run generate`.');
+      console.error('src/generated/routes.ts is out of date: run `npm run generate`.');
       process.exit(1);
     }
-    console.log('src/generated/routes.ts está al día.');
+    console.log('src/generated/routes.ts is up to date.');
     return;
   }
   mkdirSync(dirname(OUT_FILE), { recursive: true });
   writeFileSync(OUT_FILE, output);
-  console.log(`generado: src/generated/routes.ts (${routes.length} rutas, ${routes.filter((r) => r.pending).length} pendientes)`);
+  console.log(`generated: src/generated/routes.ts (${routes.length} routes, ${routes.filter((r) => r.pending).length} pending)`);
 }
 
 try {

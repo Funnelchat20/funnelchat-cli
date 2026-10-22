@@ -13,7 +13,7 @@ describe('generated route table', () => {
   it('is up to date with the spec, and every route exists in it', () => {
     // Fails if a route or a query parameter of spec/routes-used.json is not in the spec.
     const output = execFileSync(process.execPath, [join(root, 'scripts/generate.mjs'), '--check'], { encoding: 'utf8' });
-    expect(output).toContain('está al día');
+    expect(output).toContain('is up to date');
   });
 
   it('matches the provenance of the spec copy', () => {

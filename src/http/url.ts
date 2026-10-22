@@ -61,7 +61,7 @@ export function interpolatePath(template: string, params: Record<string, unknown
   return template.replace(/\{([^}]+)\}/g, (_, name: string) => {
     const value = params?.[name];
     if (value === undefined || value === null || value === '') {
-      throw new TypeError(`Falta el parámetro de ruta "${name}" para ${template}.`);
+      throw new TypeError(`Missing the path parameter "${name}" for ${template}.`);
     }
     return encodeURIComponent(String(value));
   });

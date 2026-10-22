@@ -5,7 +5,7 @@
 
 /** Anything that looks like the secret part of a Funnelchat key (`fc_live_…`). */
 const KEY_SHAPE = /fc_[a-z]+_[A-Za-z0-9]{4,}/g;
-export const REDACTED = '[clave oculta]';
+export const REDACTED = '[key hidden]';
 
 export class Redactor {
   readonly #secrets: string[] = [];

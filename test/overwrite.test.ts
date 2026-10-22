@@ -18,7 +18,7 @@ describe('an existing file is never overwritten', () => {
     for (const command of [['contacts', 'export', '-o', 'out'], ['conversations', 'export', '-o', 'out']]) {
       const result = await cli(command, { fetch, cwd });
       expect(result.code).toBe(ExitCode.EXISTS);
-      expect(result.stderr).toContain('nunca pisa');
+      expect(result.stderr).toContain('never overwrites');
     }
     expect(calls).toHaveLength(0);
     expect(readFileSync(join(cwd, 'out', 'contacts.csv'), 'utf8')).toBe('mis datos\n');
@@ -77,6 +77,6 @@ describe('an existing file is never overwritten', () => {
     account.hooks = [];
     const locked = await cli(['contacts', 'export', '-o', 'out', '--resume'], { fetch: account.fetch().fetch, cwd });
     expect(locked.code).toBe(ExitCode.EXISTS);
-    expect(locked.stderr).toContain('está usando');
+    expect(locked.stderr).toContain('is using');
   });
 });

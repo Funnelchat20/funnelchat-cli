@@ -1,5 +1,5 @@
 {
-  "description": "De dónde salió spec/funnelchat.json. Lo escribe `npm run generate -- --spec <archivo>`; no lo edites a mano.",
+  "description": "Where spec/funnelchat.json came from. Written by `npm run generate -- --spec <file>`; do not edit it by hand.",
   "file": "spec/funnelchat.json",
   "sha256": "8bbbae569b4cab520884db98f28204156c1bd6c629578bee609343c193e0dadb",
   "bytes": 635293,

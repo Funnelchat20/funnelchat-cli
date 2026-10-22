@@ -126,7 +126,7 @@ export class ApiClient {
       await opts.pacer.wait(opts.signal);
       this.requests++;
       const started = opts.clock();
-      opts.log?.(`→ ${method} ${url}${attempt > 0 ? ` (intento ${attempt + 1})` : ''}`);
+      opts.log?.(`→ ${method} ${url}${attempt > 0 ? ` (attempt ${attempt + 1})` : ''}`);
 
       let response: Response;
       let text: string;
@@ -136,7 +136,7 @@ export class ApiClient {
         if (error instanceof InterruptedError) throw error;
         if (canRetry) {
           const delay = backoffMs(attempt, random);
-          opts.log?.(`← ${describeConnectionError(error)}; reintento en ${formatSeconds(delay / 1000)}`);
+          opts.log?.(`← ${describeConnectionError(error)}; retrying in ${formatSeconds(delay / 1000)}`);
           await this.#sleep(delay);
           continue;
         }
@@ -144,7 +144,7 @@ export class ApiClient {
       }
 
       const requestId = response.headers.get('x-request-id') ?? undefined;
-      opts.log?.(`← ${response.status} en ${opts.clock() - started} ms${requestId ? ` · X-Request-Id ${requestId}` : ''}`);
+      opts.log?.(`← ${response.status} in ${opts.clock() - started} ms${requestId ? ` · X-Request-Id ${requestId}` : ''}`);
       const body = parseBody(response, text);
       if (response.ok) return body;
 
@@ -167,11 +167,11 @@ export class ApiClient {
         throw stopForLongWait(error, retryAfter, opts.clock());
       }
       if (!canRetry) {
-        if (response.status === 429) error.hint = [`Espera ${formatSeconds(retryAfter ?? 60)} y vuelve a intentar.`, error.hint].filter(Boolean).join('\n');
+        if (response.status === 429) error.hint = [`Wait ${formatSeconds(retryAfter ?? 60)} and try again.`, error.hint].filter(Boolean).join('\n');
         throw error;
       }
       const delay = retryAfter !== undefined ? Math.ceil(retryAfter * 1000) : backoffMs(attempt, random);
-      opts.log?.(`  ${response.status}${error.apiCode ? ` ${error.apiCode}` : ''}: espero ${formatSeconds(delay / 1000)}${retryAfter !== undefined ? ' (Retry-After)' : ''}`);
+      opts.log?.(`  ${response.status}${error.apiCode ? ` ${error.apiCode}` : ''}: waiting ${formatSeconds(delay / 1000)}${retryAfter !== undefined ? ' (Retry-After)' : ''}`);
       await this.#sleep(delay);
     }
   }
@@ -200,8 +200,8 @@ export class ApiClient {
 
     const classify = (cause: unknown): Error => {
       if (signal?.aborted) return new InterruptedError();
-      if (timedOut) return new ConnectionError(`La API de Funnelchat no respondió en ${timeoutMs / 1000} s.`, cause);
-      return new ConnectionError(`No se pudo conectar con la API de Funnelchat (${hostOf(url)}).`, cause);
+      if (timedOut) return new ConnectionError(`The Funnelchat API did not answer within ${timeoutMs / 1000} s.`, cause);
+      return new ConnectionError(`Could not connect to the Funnelchat API (${hostOf(url)}).`, cause);
     };
 
     try {
@@ -240,13 +240,13 @@ export function backoffMs(attempt: number, random: () => number = Math.random): 
 /** A `429`/`503` whose `Retry-After` is longer than the CLI waits for: stop, and say when it resets. */
 function stopForLongWait(error: ApiError, retryAfter: number, now: number): ApiError {
   const at = new Date(now + retryAfter * 1000);
-  const when = `${formatSeconds(retryAfter)} (a las ${at.toISOString().slice(11, 16)} UTC del ${at.toISOString().slice(0, 10)})`;
+  const when = `${formatSeconds(retryAfter)} (at ${at.toISOString().slice(11, 16)} UTC on ${at.toISOString().slice(0, 10)})`;
   let message: string;
   if (error.apiCode === 'daily_cap_exceeded') {
-    const domain = error.domain ?? 'esta área';
-    message = `Se alcanzó el tope diario de llamadas de ${domain} para esta clave. Se reinicia en ${when}.`;
+    const domain = error.domain ?? 'this area';
+    message = `The daily cap of calls to ${domain} was reached for this key. It resets in ${when}.`;
   } else {
-    message = `${error.message} La API pide esperar ${when}, más de lo que la CLI espera sola.`;
+    message = `${error.message} The API asks to wait ${when}, longer than the CLI waits on its own.`;
   }
   return new ApiError({
     status: error.status,
@@ -297,5 +297,5 @@ function hostOf(url: string): string {
 }
 
 function describeConnectionError(error: unknown): string {
-  return error instanceof Error ? error.message : 'error de red';
+  return error instanceof Error ? error.message : 'network error';
 }

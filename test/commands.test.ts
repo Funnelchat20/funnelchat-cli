@@ -14,7 +14,7 @@ describe('whoami', () => {
     const human = await run(['whoami']);
     expect(human.code).toBe(0);
     expect(human.stdout).toContain('Cuenta de prueba (dueno@example.com)');
-    expect(human.stdout).toContain('de la variable FUNNELCHAT_API_KEY');
+    expect(human.stdout).toContain('from the FUNNELCHAT_API_KEY variable');
     const json = JSON.parse((await run(['--json', 'whoami'])).stdout);
     expect(Object.keys(json.account).sort()).toEqual(['email', 'id', 'locale', 'name', 'role', 'timezone']);
     expect(json.key_source).toBe('env');
@@ -30,7 +30,7 @@ describe('numbers', () => {
     // The API's own `capabilities` (accounts v1.4.24) goes through untouched.
     expect(official.capabilities).toEqual({ messages: { text: true, templates: true }, groups: { send: false }, statuses: ['sent', 'delivered', 'read', 'failed'] });
     const human = await run(['numbers', 'list']);
-    expect(human.stdout).toContain('plantillas, salud y límite');
+    expect(human.stdout).toContain('templates, health and limit');
   });
 
   it('health reads only official numbers by default, and says when one is not official', async () => {
@@ -40,7 +40,7 @@ describe('numbers', () => {
     const some = await run(['numbers', 'health', '3', '4']);
     expect(some.code).toBe(0);
     expect(some.stdout).toContain('TIER_1K');
-    expect(some.stdout).toContain('no es un número oficial');
+    expect(some.stdout).toContain('not an official number');
   });
 });
 
@@ -57,7 +57,7 @@ describe('templates', () => {
 describe('mac status', () => {
   it('shows the consumption against the limit', async () => {
     const result = await run(['mac', 'status']);
-    expect(result.stdout).toContain('MACs del período: 120 de 1.000 (12 %) · quedan 880');
+    expect(result.stdout).toContain('MACs in the period: 120 of 1,000 (12 %) · 880 left');
   });
 
   it('reads the shape of an account inside the MAC rollout too', async () => {
@@ -84,9 +84,9 @@ describe('mac status', () => {
     );
     const result = await run(['mac', 'status'], enrolled);
     expect(result.code).toBe(0);
-    expect(result.stdout).toContain('MACs del período: 950 de 1.200 (79,17 %) · quedan 250');
-    expect(result.stdout).toContain('estado enforcing');
-    expect(result.stdout).toContain('contactos inactivos por MAC: 12');
+    expect(result.stdout).toContain('MACs in the period: 950 of 1,200 (79.17 %) · 250 left');
+    expect(result.stdout).toContain('state enforcing');
+    expect(result.stdout).toContain('contacts inactive by MAC: 12');
   });
 });
 
@@ -140,8 +140,8 @@ describe('usage', () => {
   it('help and version exit 0; an unknown command or option exits 2', async () => {
     const help = await run(['--help']);
     expect(help.code).toBe(0);
-    expect(help.stdout).toContain('Códigos de salida');
-    expect(help.stdout).toContain('no manda mensajes ni modifica nada');
+    expect(help.stdout).toContain('Exit codes');
+    expect(help.stdout).toContain('it sends no messages and changes nothing');
     const version = await run(['--version']);
     expect(version.code).toBe(0);
     expect(version.stdout.trim()).toBe(VERSION);

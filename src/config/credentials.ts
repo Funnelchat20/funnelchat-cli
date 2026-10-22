@@ -42,17 +42,17 @@ export function activeProfileName(flags: ConnectionFlags, env: Record<string, st
 export function checkKeyShape(key: string): string {
   const trimmed = key.trim();
   if (!KEY_SHAPE.test(trimmed)) {
-    throw new CliError('La clave no tiene la forma de una clave de Funnelchat (`<id>|fc_live_…`).', {
+    throw new CliError('The key does not have the shape of a Funnelchat key (`<id>|fc_live_…`).', {
       exitCode: ExitCode.AUTH,
       code: 'malformed_key',
-      hint: 'Cópiala completa desde la pantalla Desarrolladores de tu cuenta, incluido el `<id>|` del principio.',
+      hint: 'Copy it in full from the Developers screen of your account, including the `<id>|` at the start.',
     });
   }
   return trimmed;
 }
 
 export function resolveBaseUrl(flags: ConnectionFlags, env: Record<string, string | undefined>, profileUrl: string | undefined): string {
-  if (flags.baseUrl && flags.staging) throw usageError('Usa --base-url o --staging, no los dos.');
+  if (flags.baseUrl && flags.staging) throw usageError('Use --base-url or --staging, not both.');
   const raw = flags.baseUrl ?? (flags.staging ? STAGING_URL : undefined) ?? nonEmpty(env.FUNNELCHAT_BASE_URL) ?? profileUrl ?? PRODUCTION_URL;
   return checkBaseUrl(raw);
 }
@@ -62,16 +62,16 @@ export function checkBaseUrl(raw: string): string {
   try {
     url = new URL(raw);
   } catch {
-    throw usageError(`La URL base no es válida: ${raw}`);
+    throw usageError(`The base URL is not valid: ${raw}`);
   }
   const local = ['localhost', '127.0.0.1', '[::1]', '::1'].includes(url.hostname);
   if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) {
     throw usageError(
-      `La URL base tiene que ser https (${raw}).`,
-      'Solo se acepta http para esta máquina (por ejemplo el sandbox en http://127.0.0.1:4010), para que la clave no viaje sin cifrar.',
+      `The base URL must be https (${raw}).`,
+      'http is only accepted for this machine (for example the sandbox at http://127.0.0.1:4010), so the key never travels unencrypted.',
     );
   }
-  if (url.search || url.hash) throw usageError(`La URL base no lleva query ni #: ${raw}`);
+  if (url.search || url.hash) throw usageError(`The base URL takes no query and no #: ${raw}`);
   return url.toString().replace(/\/+$/, '');
 }
 
@@ -87,16 +87,16 @@ export function resolveCredentials(flags: ConnectionFlags, env: Record<string, s
     return { apiKey: checkKeyShape(profile.api_key), keySource: 'profile', profile: profileName, baseUrl: resolveBaseUrl(flags, env, profile.base_url) };
   }
   if (flags.profile !== undefined) {
-    throw new CliError(`El perfil "${flags.profile}" no tiene clave guardada.`, {
+    throw new CliError(`The "${flags.profile}" profile has no saved key.`, {
       exitCode: ExitCode.AUTH,
       code: 'no_key',
-      hint: `Guárdala con \`funnelchat login --profile ${flags.profile}\`.`,
+      hint: `Save it with \`funnelchat login --profile ${flags.profile}\`.`,
     });
   }
-  throw new CliError('No hay clave de API.', {
+  throw new CliError('No API key.', {
     exitCode: ExitCode.AUTH,
     code: 'no_key',
-    hint: 'Define la variable FUNNELCHAT_API_KEY o guárdala con `funnelchat login`.',
+    hint: 'Set the FUNNELCHAT_API_KEY variable or save it with `funnelchat login`.',
   });
 }
 

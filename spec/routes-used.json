@@ -1,5 +1,5 @@
 {
-  "description": "Las rutas de la API que usa la CLI, con los parámetros de query que manda. `npm run generate` busca cada una en spec/funnelchat.json (o en spec/pending.json mientras la instantánea no la tenga) y falla si una ruta o un parámetro no existe: la CLI no inventa rutas. `page` y `cursor` no hace falta listarlos: salen de la forma de paginación de la respuesta.",
+  "description": "The API routes the CLI uses, with the query parameters it sends. `npm run generate` looks each one up in spec/funnelchat.json (or in spec/pending.json while the snapshot lacks it) and fails if a route or a parameter does not exist: the CLI does not make up routes. `page` and `cursor` need not be listed: they come from the pagination shape of the answer.",
   "routes": [
     { "id": "me", "method": "GET", "path": "/api/v1/me", "query": [], "used_by": ["login", "whoami"] },
     { "id": "devicesList", "method": "GET", "path": "/api/v1/devices", "query": ["perPage"], "used_by": ["numbers list", "numbers health"] },

@@ -23,10 +23,10 @@ const OFFICIAL_PROVIDER = 2;
 export type Capability = 'contacts' | 'conversations' | 'templates' | 'health';
 
 const CAPABILITY_LABELS: Record<Capability, string> = {
-  contacts: 'contactos',
-  conversations: 'conversaciones',
-  templates: 'plantillas',
-  health: 'salud y límite',
+  contacts: 'contacts',
+  conversations: 'conversations',
+  templates: 'templates',
+  health: 'health and limit',
 };
 
 /**
@@ -57,15 +57,15 @@ export async function numbersList(ctx: Context): Promise<void> {
   }));
   ctx.out.result({ numbers: rows }, () =>
     rows.length === 0
-      ? 'La cuenta no tiene números.'
+      ? 'The account has no numbers.'
       : table(
-          ['id', 'alias', 'número', 'conexión', 'conectado', 'salud', 'qué lee la CLI'],
+          ['id', 'alias', 'number', 'connection', 'connected', 'health', 'what the CLI reads'],
           rows.map((d) => [
             d.id as number,
             d.alias as string,
             d.number as string,
-            d.connection === 'official' ? 'oficial' : 'QR',
-            Number(d.connected) === 1 ? 'sí' : 'no',
+            d.connection === 'official' ? 'official' : 'QR',
+            Number(d.connected) === 1 ? 'yes' : 'no',
             isRecord(d.health) ? String(d.health.state ?? '-') : null,
             d.cli_capabilities.map((c) => CAPABILITY_LABELS[c]).join(', '),
           ]),
@@ -75,14 +75,14 @@ export async function numbersList(ctx: Context): Promise<void> {
 
 export async function numbersHealth(ctx: Context, ids: string[]): Promise<void> {
   let targets: { id: number; label: string }[];
-  const wanted = idList(ids, 'número');
+  const wanted = idList(ids, 'number');
   if (wanted.length) {
     targets = wanted.map((id) => ({ id, label: String(id) }));
   } else {
     const devices = (await listDevices(ctx)).filter((d) => connectionOf(d) === 'official');
     targets = devices.map((d) => ({ id: Number(d.id), label: String(d.alias || d.number || d.id) }));
     if (targets.length === 0) {
-      ctx.out.result({ numbers: [] }, () => 'La cuenta no tiene números oficiales: la salud y el límite son solo de la API oficial de WhatsApp.');
+      ctx.out.result({ numbers: [] }, () => 'The account has no official numbers: health and limit exist only for the official WhatsApp API.');
       return;
     }
   }
@@ -103,19 +103,19 @@ export async function numbersHealth(ctx: Context, ids: string[]): Promise<void> 
 
   ctx.out.result({ numbers: results }, () =>
     table(
-      ['id', 'estado', 'calidad', 'límite', 'por día', 'throughput', 'actualizado', 'viejo'],
+      ['id', 'state', 'quality', 'limit', 'per day', 'throughput', 'updated', 'stale'],
       results.map((r) => {
-        if (r.error === 'device_not_meta') return [r.device_id as number, 'no es un número oficial', null, null, null, null, null, null];
+        if (r.error === 'device_not_meta') return [r.device_id as number, 'not an official number', null, null, null, null, null, null];
         const h = isRecord(r.health) ? r.health : {};
         return [
           r.device_id as number,
           str(h.state),
           str(h.quality_level),
           str(h.messaging_limit_tier),
-          h.messaging_limit_per_day === null || h.messaging_limit_per_day === undefined ? 'sin límite informado' : Number(h.messaging_limit_per_day).toLocaleString('es-AR'),
+          h.messaging_limit_per_day === null || h.messaging_limit_per_day === undefined ? 'no limit reported' : Number(h.messaging_limit_per_day).toLocaleString('en-US'),
           str(r.throughput_level),
           str(h.last_fetched_at),
-          h.stale === true ? 'sí' : h.stale === false ? 'no' : null,
+          h.stale === true ? 'yes' : h.stale === false ? 'no' : null,
         ];
       }),
     ),

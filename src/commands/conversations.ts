@@ -26,7 +26,7 @@ import { type FileEntry, PartFile, type PartPosition } from '../export/files.js'
 import { baseManifest, type BaseState, ExportSession, type Manifest, quote } from '../export/session.js';
 import { VERSION } from '../version.js';
 import { idList, positiveInt } from './common.js';
-import { finishExport, formatCount, withResumeHint } from './export-common.js';
+import { countOf, finishExport, formatCount, withResumeHint } from './export-common.js';
 
 export interface ConversationsExportFlags {
   outputDir?: string;
@@ -88,7 +88,7 @@ function normalize(flags: ConversationsExportFlags): ConversationsOptions {
 
 export async function conversationsExport(ctx: Context, flags: ConversationsExportFlags, explicitFlags: Set<string>): Promise<void> {
   const resume = flags.resume === true;
-  if (resume && !flags.outputDir) throw usageError('--resume necesita la --output-dir de la exportación que se cortó.');
+  if (resume && !flags.outputDir) throw usageError('--resume needs the --output-dir of the export that was interrupted.');
   const options = normalize(flags);
   const { baseUrl } = ctx.credentials();
   const client = ctx.client();
@@ -120,7 +120,7 @@ export async function conversationsExport(ctx: Context, flags: ConversationsExpo
     }),
   });
   if ('alreadyComplete' in opened) {
-    ctx.out.result({ status: 'already_complete', manifest: opened.alreadyComplete }, () => `La exportación ya estaba completa: ${opened.alreadyComplete}`);
+    ctx.out.result({ status: 'already_complete', manifest: opened.alreadyComplete }, () => `The export was already complete: ${opened.alreadyComplete}`);
     return;
   }
 
@@ -139,7 +139,7 @@ export async function conversationsExport(ctx: Context, flags: ConversationsExpo
   let file: PartFile | null = null;
 
   try {
-    ctx.out.progress(resume ? `Retomando la exportación de conversaciones en ${session.dir}` : `Exportando conversaciones a ${session.dir}`);
+    ctx.out.progress(resume ? `Resuming the conversations export in ${session.dir}` : `Exporting conversations to ${session.dir}`);
 
     // 1. The conversations to export.
     if (state.phase === 'list') {
@@ -154,10 +154,10 @@ export async function conversationsExport(ctx: Context, flags: ConversationsExpo
             const page = await client.page<Record<string, unknown>>(routes.conversationsList, { query: { contactId: id, perPage: 1 } });
             const conversation = page.items.find((item) => conversationContactId(item) === id);
             if (!conversation) {
-              throw new CliError(`El contacto ${id} no existe en la cuenta, o la clave no lo ve.`, {
+              throw new CliError(`Contact ${id} does not exist in the account, or the key cannot see it.`, {
                 exitCode: ExitCode.NOT_FOUND,
                 code: 'contact_not_found',
-                hint: 'Revisa el id: es el `id` de GET /api/v1/contacts.',
+                hint: 'Check the id: it is the `id` of GET /api/v1/contacts.',
               });
             }
             if (!seen.has(id)) {
@@ -197,7 +197,7 @@ export async function conversationsExport(ctx: Context, flags: ConversationsExpo
           state.list.next = page.next;
           state.list.done = page.next === null;
           save();
-          ctx.out.progress(`  conversaciones: ${formatCount(state.list.file.rows)}`);
+          ctx.out.progress(`  conversations: ${formatCount(state.list.file.rows)}`);
         }
         state.conversations_file = file.finalize();
         file = null;
@@ -276,7 +276,7 @@ export async function conversationsExport(ctx: Context, flags: ConversationsExpo
       m.contact_index = i + 1;
       m.next = null;
       save();
-      ctx.out.progress(`  conversación ${formatCount(i + 1)} de ${formatCount(contactIds.length)} (contacto ${contactId}): ${formatCount(messages)} mensajes · total ${formatCount(m.total)}`);
+      ctx.out.progress(`  conversation ${formatCount(i + 1)} of ${formatCount(contactIds.length)} (contact ${contactId}): ${countOf(messages, 'message')} · total ${formatCount(m.total)}`);
     }
     if (file) {
       if ((file as PartFile).rows > 0) rotate();
@@ -304,20 +304,20 @@ export async function conversationsExport(ctx: Context, flags: ConversationsExpo
       },
       files: [conversationsFile, ...m.parts],
       notes: [
-        'conversations.jsonl: una conversación por línea, tal como la devuelve GET /api/v1/conversations (por contact_id, sin repetir).',
-        'messages-NNNNN.jsonl: un mensaje por línea, tal como lo devuelve GET /api/v1/contacts/{contactId}/messages; las conversaciones en el orden de conversations.jsonl y, dentro de cada una, del mensaje más nuevo al más viejo (id descendente, el orden de la API).',
-        ...(o.since ? ['since se manda como updated_since: conversaciones y mensajes creados o modificados desde esa fecha. La API no tiene un filtro "hasta".'] : []),
+        'conversations.jsonl: one conversation per line, as GET /api/v1/conversations returns it (by contact_id, without repeats).',
+        'messages-NNNNN.jsonl: one message per line, as GET /api/v1/contacts/{contactId}/messages returns it; conversations in the order of conversations.jsonl and, within each one, from the newest message to the oldest (descending id, the API\'s order).',
+        ...(o.since ? ['since is sent as updated_since: conversations and messages created or changed since that date. The API has no "until" filter.'] : []),
         ...(o.device_id !== null
-          ? ['device_id elige las conversaciones del lado de la API (deviceId) y los mensajes del lado de la CLI: la API no filtra mensajes por número.']
+          ? ['device_id picks the conversations on the API side (deviceId) and the messages on the CLI side: the API does not filter messages by number.']
           : []),
-        'observed_*_message_time: el campo time de los mensajes, tal como lo devuelve la API (AAAA-MM-DD HH:MM:SS, sin zona horaria).',
+        'observed_*_message_time: the time field of the messages, as the API returns it (YYYY-MM-DD HH:MM:SS, without a time zone).',
       ],
     };
     finishExport(
       ctx,
       session,
       manifest,
-      `${formatCount(contactIds.length)} conversaciones y ${formatCount(m.total)} mensajes en ${formatCount(m.parts.length)} ${m.parts.length === 1 ? 'parte' : 'partes'}, en ${session.dir}`,
+      `${countOf(contactIds.length, 'conversation')} and ${countOf(m.total, 'message')} in ${countOf(m.parts.length, 'part')}, in ${session.dir}`,
     );
   } catch (error) {
     throw withResumeHint(error, resumeCommand);

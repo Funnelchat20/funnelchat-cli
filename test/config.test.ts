@@ -16,8 +16,8 @@ describe('credentials', () => {
     expect(resolveCredentials({}, {}, config)).toMatchObject({ apiKey: OTHER_KEY, keySource: 'profile', profile: 'trabajo', baseUrl: STAGING_URL });
     expect(resolveCredentials({ profile: 'default' }, { FUNNELCHAT_API_KEY: OTHER_KEY }, config)).toMatchObject({ apiKey: TEST_KEY, profile: 'default' });
     expect(resolveCredentials({}, { FUNNELCHAT_PROFILE: 'default' }, config)).toMatchObject({ apiKey: TEST_KEY });
-    expect(() => resolveCredentials({}, {}, { version: 1, profiles: {} })).toThrow(/No hay clave/);
-    expect(() => resolveCredentials({ profile: 'nada' }, {}, config)).toThrow(/no tiene clave/);
+    expect(() => resolveCredentials({}, {}, { version: 1, profiles: {} })).toThrow(/No API key/);
+    expect(() => resolveCredentials({ profile: 'nada' }, {}, config)).toThrow(/has no saved key/);
   });
 
   it('picks the base URL: --base-url, --staging, FUNNELCHAT_BASE_URL, profile, production', () => {
@@ -87,6 +87,6 @@ describe('config file', () => {
     expect((await cli(['logout'], { fetch: account.fetch().fetch, cwd, env })).code).toBe(0);
     const whoami = await cli(['whoami'], { fetch: account.fetch().fetch, cwd, env });
     expect(whoami.code).toBe(3);
-    expect(whoami.stderr).toContain('No hay clave');
+    expect(whoami.stderr).toContain('No API key');
   });
 });

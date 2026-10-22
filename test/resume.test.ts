@@ -77,7 +77,7 @@ describe('contacts export --resume', () => {
 
     const different = await cli(['contacts', 'export', '-o', 'out', '--resume', '--format', 'csv'], { fetch: account.fetch().fetch, cwd });
     expect(different.code).toBe(2);
-    expect(different.stderr).toContain('no coinciden');
+    expect(different.stderr).toContain('do not match');
     expect(readFileSync(join(cwd, 'out', STATE_FILE), 'utf8')).toBe(before);
 
     expect((await cli(['contacts', 'export', '--resume'], { fetch: account.fetch().fetch, cwd })).code).toBe(2);
@@ -90,7 +90,7 @@ describe('contacts export --resume', () => {
     expect((await cli(['contacts', 'export', '-o', 'out'], { fetch: account.fetch().fetch, cwd })).code).toBe(0);
     const again = await cli(['contacts', 'export', '-o', 'out', '--resume'], { fetch: account.fetch().fetch, cwd });
     expect(again.code).toBe(0);
-    expect(again.stdout).toContain('ya estaba completa');
+    expect(again.stdout).toContain('was already complete');
   });
 });
 

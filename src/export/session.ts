@@ -65,13 +65,13 @@ export class ExportSession<S extends BaseState> {
 
     if (!options.resume) {
       if (existsSync(dir)) {
-        if (!statSync(dir).isDirectory()) throw exists(dir, 'Elige una carpeta con --output-dir.');
+        if (!statSync(dir).isDirectory()) throw exists(dir, 'Choose a folder with --output-dir.');
         if (readdirSync(dir).length > 0) {
           throw exists(
             dir,
             existsSync(statePath)
-              ? `Hay una exportación sin terminar en esa carpeta: retómala con\n  funnelchat ${options.kind} export --output-dir ${quote(options.dir)} --resume`
-              : 'Elige una carpeta nueva o vacía con --output-dir: la CLI nunca pisa archivos.',
+              ? `There is an unfinished export in that folder: resume it with\n  funnelchat ${options.kind} export --output-dir ${quote(options.dir)} --resume`
+              : 'Choose a new or empty folder with --output-dir: the CLI never overwrites files.',
           );
         }
       }
@@ -84,22 +84,22 @@ export class ExportSession<S extends BaseState> {
 
     if (!existsSync(statePath)) {
       if (existsSync(join(dir, MANIFEST_FILE))) return { alreadyComplete: join(dir, MANIFEST_FILE) };
-      throw usageError(`No hay una exportación para retomar en ${dir}.`, 'Pasa la misma --output-dir de la exportación que se cortó.');
+      throw usageError(`There is no export to resume in ${dir}.`, 'Pass the same --output-dir as the export that was interrupted.');
     }
     const state = readState<S>(statePath);
     if (state.kind !== options.kind) {
-      throw usageError(`Esa carpeta tiene una exportación de ${state.kind}, no de ${options.kind}.`, `Retómala con \`funnelchat ${state.kind} export --output-dir ${quote(options.dir)} --resume\`.`);
+      throw usageError(`That folder holds a ${state.kind} export, not a ${options.kind} one.`, `Resume it with \`funnelchat ${state.kind} export --output-dir ${quote(options.dir)} --resume\`.`);
     }
     if (state.base_url !== options.baseUrl) {
-      throw usageError(`Esa exportación se hizo contra ${state.base_url} y ahora la URL base es ${options.baseUrl}.`, 'Retómala con la misma URL base (y la misma clave) que la original.');
+      throw usageError(`That export was made against ${state.base_url} and the base URL is now ${options.baseUrl}.`, 'Resume it with the same base URL (and the same key) as the original.');
     }
     const differences = [...options.explicit]
       .filter((key) => JSON.stringify(options.options[key] ?? null) !== JSON.stringify(state.options[key] ?? null))
-      .map((key) => `${key}: original ${JSON.stringify(state.options[key] ?? null)}, ahora ${JSON.stringify(options.options[key] ?? null)}`);
+      .map((key) => `${key}: original ${JSON.stringify(state.options[key] ?? null)}, now ${JSON.stringify(options.options[key] ?? null)}`);
     if (differences.length) {
       throw usageError(
-        `Las opciones no coinciden con las de la exportación original (${differences.join('; ')}).`,
-        'Con --resume no hace falta repetir las opciones: se usan las originales.',
+        `The options do not match those of the original export (${differences.join('; ')}).`,
+        'With --resume there is no need to repeat the options: the original ones are used.',
       );
     }
     lock(dir);
@@ -137,10 +137,10 @@ function readState<S extends BaseState>(path: string): S {
   try {
     parsed = JSON.parse(readFileSync(path, 'utf8'));
   } catch {
-    throw usageError(`El estado de la exportación (${path}) no se puede leer.`, 'Empieza la exportación de nuevo en otra carpeta.');
+    throw usageError(`The state of the export (${path}) cannot be read.`, 'Start the export again in another folder.');
   }
   if (!isRecord(parsed) || parsed.state_version !== 1 || typeof parsed.kind !== 'string') {
-    throw usageError(`El estado de la exportación (${path}) no es de esta versión de la CLI.`, 'Empieza la exportación de nuevo en otra carpeta.');
+    throw usageError(`The state of the export (${path}) is not from this version of the CLI.`, 'Start the export again in another folder.');
   }
   return parsed as unknown as S;
 }
@@ -157,10 +157,10 @@ function lock(dir: string): void {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
       const pid = Number(readFileSync(path, 'utf8').trim());
       if (Number.isInteger(pid) && pid > 0 && pid !== process.pid && isAlive(pid)) {
-        throw new CliError(`Otra ejecución de la CLI (proceso ${pid}) está usando ${dir}.`, {
+        throw new CliError(`Another run of the CLI (process ${pid}) is using ${dir}.`, {
           exitCode: ExitCode.EXISTS,
           code: 'export_locked',
-          hint: 'Espera a que termine, o córtala, y vuelve a intentar.',
+          hint: 'Wait for it to finish, or stop it, and try again.',
         });
       }
       unlinkSync(path);
@@ -178,7 +178,7 @@ function isAlive(pid: number): boolean {
 }
 
 function exists(dir: string, hint: string): CliError {
-  return new CliError(`La carpeta ${dir} ya existe y no está vacía.`, { exitCode: ExitCode.EXISTS, code: 'output_exists', hint, details: { path: dir } });
+  return new CliError(`The folder ${dir} already exists and is not empty.`, { exitCode: ExitCode.EXISTS, code: 'output_exists', hint, details: { path: dir } });
 }
 
 export function quote(value: string): string {

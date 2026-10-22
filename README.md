@@ -1,269 +1,269 @@
 # funnelchat-cli
 
-La CLI de Funnelchat para **exportar tus conversaciones y tus contactos** desde la API pública, y consultar tus números, tus plantillas y tus MACs, con tu clave de integrador. Escribe archivos que se pueden verificar, nunca pisa uno que ya existe y, si se corta, sigue desde donde quedó.
+The Funnelchat CLI to **export your conversations and your contacts** through the public API, and check your numbers, your templates and your MACs, with your integrator key. It writes files you can verify, never overwrites one that already exists and, if it gets interrupted, picks up where it left off.
 
 ```bash
-funnelchat contacts export --output-dir ./mis-contactos
-funnelchat conversations export --since 2026-10-01 --output-dir ./octubre
+funnelchat contacts export --output-dir ./my-contacts
+funnelchat conversations export --since 2026-10-01 --output-dir ./october
 ```
 
-> **Estado: v0.** La API pública está en v0 y puede cambiar. La CLI usa solo lo que la API tiene en producción; lo que se suma después está en [Lo que viene](#lo-que-viene). La referencia de la API está en el [portal de desarrolladores](https://developers-portal.funnelchat.app/docs/).
+> **Status: v0.** The public API is at v0 and may change. The CLI uses only what the API has in production; what gets added later is in [Coming next](#coming-next). The API reference is on the [developer portal](https://developers-portal.funnelchat.app/docs/).
 
-## Qué hace y qué no
+## What it does and what it does not
 
-- **Solo lee.** No manda mensajes, no crea ni modifica nada en tu cuenta: todas sus llamadas son `GET`.
-- **Exporta paginando la API pública**, porque la API no tiene una exportación del lado del servidor. Una cuenta grande lleva su tiempo: la CLI va a un ritmo bajo a propósito para no frenar tu panel.
-- **No guarda ni muestra tu clave** en ningún lado salvo en tu archivo de configuración, si usas `funnelchat login`.
+- **It only reads.** It sends no messages and creates or changes nothing in your account: every call it makes is a `GET`.
+- **It exports by paging through the public API**, because the API has no server-side export. A large account takes a while: the CLI goes at a low pace on purpose, so it does not slow down your panel.
+- **It never stores or shows your key** anywhere except your configuration file, if you use `funnelchat login`.
 
-## Instalación
+## Installation
 
-Necesitas Node 18 o posterior.
+You need Node 18 or later.
 
 ```bash
 npm install --global funnelchat-cli
 funnelchat --version
 ```
 
-O sin instalarla: `npx funnelchat-cli --version`.
+Or without installing it: `npx funnelchat-cli --version`.
 
-### Un ejemplo mínimo
+### A minimal example
 
 ```bash
-funnelchat login                                   # pega tu clave; no se muestra
-funnelchat whoami                                  # a qué cuenta pertenece
-funnelchat contacts export --output-dir ./mis-contactos
+funnelchat login                                   # paste your key; it is not shown
+funnelchat whoami                                  # which account it belongs to
+funnelchat contacts export --output-dir ./my-contacts
 ```
 
-Deja `mis-contactos/contacts.csv` y `mis-contactos/manifest.json`, con el SHA-256 de cada archivo.
+It leaves `my-contacts/contacts.csv` and `my-contacts/manifest.json`, with the SHA-256 of every file.
 
-### Desde el código
+### From the source
 
 ```bash
 git clone https://github.com/Funnelchat20/funnelchat-cli.git
 cd funnelchat-cli
 npm install
 npm run build
-npm link            # deja el comando `funnelchat` disponible en tu terminal
+npm link            # makes the `funnelchat` command available in your terminal
 ```
 
-Sin `npm link`, ejecuta `node dist/cli.js` en lugar de `funnelchat`.
+Without `npm link`, run `node dist/cli.js` instead of `funnelchat`.
 
-## Autenticación
+## Authentication
 
-La CLI usa una clave de API de tu cuenta: `<id>|fc_live_...`, completa, tal como la muestra la pantalla **Desarrolladores** al crearla. Los permisos que pide cada comando:
+The CLI uses an API key of your account: `<id>|fc_live_...`, complete, as the **Developers** screen shows it when you create it. The permission each command needs:
 
-| Comando | Permiso |
+| Command | Permission |
 |---|---|
 | `contacts export`, `conversations export`, `templates`, `mac status` | `conversations:read` |
 | `whoami`, `numbers` | `accounts:read` |
 
-Hay dos formas de dársela:
+There are two ways to give it the key:
 
-**Con una variable de entorno**, para scripts y servidores:
+**With an environment variable**, for scripts and servers:
 
 ```bash
-export FUNNELCHAT_API_KEY='<id>|fc_live_...'   # entre comillas: lleva un |
+export FUNNELCHAT_API_KEY='<id>|fc_live_...'   # in quotes: it contains a |
 funnelchat whoami
 ```
 
-**Con `funnelchat login`**, que la guarda en tu archivo de configuración con permisos `0600` (solo tú puedes leerlo):
+**With `funnelchat login`**, which saves it in your configuration file with `0600` permissions (only you can read it):
 
 ```bash
 funnelchat login
-# Pega tu clave de API de Funnelchat (no se muestra) y presiona Enter:
+# Paste your Funnelchat API key (it is not shown) and press Enter:
 ```
 
 ```
-Clave guardada en el perfil "default" (/Users/ana/.config/funnelchat/config.json, permisos 0600).
-Cuenta: Mi Empresa (hola@miempresa.com)
+Key saved in the "default" profile (/Users/ana/.config/funnelchat/config.json, 0600 permissions).
+Account: Acme (hello@acme.example)
 ```
 
-Antes de guardarla, `login` la prueba contra `GET /api/v1/me`: si la API la rechaza, no se guarda. También la lee de la entrada estándar (`funnelchat login < clave.txt`). La CLI **nunca** toma la clave de una opción de la línea de comandos, para que no quede en el historial de tu terminal.
+Before saving it, `login` checks it against `GET /api/v1/me`: if the API rejects it, it is not saved. It also reads it from standard input (`funnelchat login < key.txt`). The CLI **never** takes the key from a command-line option, so it does not end up in your shell history.
 
-**Qué clave usa.** Si pasas `--profile`, la de ese perfil. Si no, `FUNNELCHAT_API_KEY` si está definida. Si no, la del perfil activo (el último con el que hiciste `login`, o el de `FUNNELCHAT_PROFILE`).
+**Which key it uses.** With `--profile`, that profile's. Otherwise `FUNNELCHAT_API_KEY`, if it is set. Otherwise the active profile's (the last one you ran `login` with, or `FUNNELCHAT_PROFILE`).
 
-**Perfiles.** Para varias cuentas o entornos:
+**Profiles.** For several accounts or environments:
 
 ```bash
-funnelchat login --profile cliente-b
-funnelchat login --profile pruebas --staging
-funnelchat profiles                 # lista los perfiles, nunca las claves
-funnelchat profiles use cliente-b   # elige el activo
-funnelchat --profile pruebas whoami
-funnelchat logout --profile pruebas # borra la clave de ese perfil
+funnelchat login --profile client-b
+funnelchat login --profile testing --staging
+funnelchat profiles                 # lists the profiles, never the keys
+funnelchat profiles use client-b    # chooses the active one
+funnelchat --profile testing whoami
+funnelchat logout --profile testing # deletes that profile's key
 ```
 
-**La URL base.** Por defecto, `https://api.funnelchat.com`. `--staging` usa `https://api-staging.funnelchat.com`; `--base-url` (o `FUNNELCHAT_BASE_URL`) cualquier otra, siempre `https`. Solo se acepta `http` para tu propia máquina, por ejemplo el [sandbox](https://github.com/Funnelchat20/funnelchat-sandbox):
+**The base URL.** By default, `https://api.funnelchat.com`. `--staging` uses `https://api-staging.funnelchat.com`; `--base-url` (or `FUNNELCHAT_BASE_URL`) any other, always `https`. `http` is accepted only for your own machine, for example the [sandbox](https://github.com/Funnelchat20/funnelchat-sandbox):
 
 ```bash
 FUNNELCHAT_API_KEY='1|fc_live_sandbox' funnelchat --base-url http://127.0.0.1:4010 contacts export
 ```
 
-**El archivo de configuración** está en `~/.config/funnelchat/config.json` (o en `$XDG_CONFIG_HOME/funnelchat/`, o en `%APPDATA%\funnelchat\` en Windows; `FUNNELCHAT_CONFIG_DIR` lo cambia). Si otros usuarios de tu máquina pueden leerlo, la CLI te avisa.
+**The configuration file** is at `~/.config/funnelchat/config.json` (or in `$XDG_CONFIG_HOME/funnelchat/`, or in `%APPDATA%\funnelchat\` on Windows; `FUNNELCHAT_CONFIG_DIR` changes it). If other users of your machine can read it, the CLI warns you.
 
-## Comandos
+## Commands
 
-Cada comando acepta `--json` para usarlo desde scripts y `--help` para ver todas sus opciones.
+Every command takes `--json` for use from scripts and `--help` to see all its options.
 
 ### `funnelchat whoami`
 
-A qué cuenta pertenece la clave, sin mostrar la clave.
+Which account the key belongs to, without showing the key.
 
 ```bash
 funnelchat whoami
 ```
 
 ```
-Cuenta: Mi Empresa (hola@miempresa.com)
-  id 42 · rol owner · zona horaria America/Argentina/Buenos_Aires · idioma es
-Clave: de la variable FUNNELCHAT_API_KEY (no se muestra)
-URL base: https://api.funnelchat.com
+Account: Acme (hello@acme.example)
+  id 42 · role owner · time zone America/Argentina/Buenos_Aires · language es
+Key: from the FUNNELCHAT_API_KEY variable (not shown)
+Base URL: https://api.funnelchat.com
 ```
 
-Muestra solo estos datos de `GET /api/v1/me`: id, nombre, email, rol, zona horaria, idioma y los límites de números y agentes. Esa ruta también devuelve un token de sesión: la CLI nunca lo muestra, ni con `--json`.
+It shows only these fields of `GET /api/v1/me`: id, name, email, role, time zone, language and the number and agent limits. That route also returns a session token: the CLI never shows it, not even with `--json`.
 
 ### `funnelchat numbers list`
 
-Tus números, con su conexión y lo que la CLI puede exportar o leer de cada uno. Sirve para elegir qué exportar.
+Your numbers, with their connection and what the CLI can export or read for each one. Useful to choose what to export.
 
 ```bash
 funnelchat numbers list
 ```
 
 ```
-id  alias      número         conexión  conectado  salud      qué lee la CLI
-3   Ventas     5491100000001  oficial   sí         AVAILABLE  contactos, conversaciones, plantillas, salud y límite
-4   Soporte    5491100000002  QR        sí         -          contactos, conversaciones
+id  alias    number         connection  connected  health     what the CLI reads
+3   Sales    5491100000001  official    yes        AVAILABLE  contacts, conversations, templates, health and limit
+4   Support  5491100000002  QR          yes        -          contacts, conversations
 ```
 
-«Qué lee la CLI» lo deduce la CLI del tipo de conexión (`provider`): los números oficiales (API de WhatsApp Cloud) tienen plantillas y salud; los de QR, no. Con `--json` sale como `cli_capabilities`. El campo `capabilities` de cada número es otra cosa: lo que la API puede hacer con él (tipos de mensaje, grupos, estados que informa), tal como lo devuelve `GET /api/v1/devices`, sin tocar.
+The CLI works out "what the CLI reads" from the connection type (`provider`): official numbers (WhatsApp Cloud API) have templates and health; QR ones do not. With `--json` it comes as `cli_capabilities`. The `capabilities` field of each number is something else: what the API can do with it (message types, groups, the statuses it reports), exactly as `GET /api/v1/devices` returns it.
 
 ### `funnelchat numbers health`
 
-La salud de tus números oficiales: estado, calidad, límite de mensajes por día y throughput, del último dato que guardó Funnelchat (no consulta a Meta en el momento).
+The health of your official numbers: state, quality, daily messaging limit and throughput, from the last data Funnelchat stored (it does not query Meta at that moment).
 
 ```bash
-funnelchat numbers health        # todos los oficiales
-funnelchat numbers health 3      # uno
+funnelchat numbers health        # every official number
+funnelchat numbers health 3      # one
 ```
 
 ```
-id  estado     calidad  límite   por día  throughput  actualizado                viejo
-3   AVAILABLE  GREEN    TIER_1K  1.000    STANDARD    2026-10-16T10:00:00+00:00  no
+id  state      quality  limit    per day  throughput  updated                    stale
+3   AVAILABLE  GREEN    TIER_1K  1,000    STANDARD    2026-10-16T10:00:00+00:00  no
 ```
 
 ### `funnelchat contacts export`
 
-Todos tus contactos, con sus etiquetas y sus campos personalizados, en CSV (por defecto) o JSONL.
+All your contacts, with their tags and their custom fields, as CSV (the default) or JSONL.
 
 ```bash
-funnelchat contacts export --output-dir ./contactos
-funnelchat contacts export --format jsonl --tag 4001 --created-from 2026-10-01 --created-to 2026-10-15 -o ./nuevos-clientes
+funnelchat contacts export --output-dir ./contacts
+funnelchat contacts export --format jsonl --tag 4001 --created-from 2026-10-01 --created-to 2026-10-15 -o ./new-clients
 ```
 
 ```
-Exportando contactos a /Users/ana/contactos
-  contactos: 100 de 436
+Exporting contacts to /Users/ana/contacts
+  contacts: 100 of 436
   …
-Exportación completa: 436 contactos en /Users/ana/contactos/contacts.csv.
-Manifiesto: /Users/ana/contactos/manifest.json (sha256 9f2c…)
+Export complete: 436 contacts in /Users/ana/contacts/contacts.csv.
+Manifest: /Users/ana/contacts/manifest.json (sha256 9f2c…)
 ```
 
-| Opción | Qué hace |
+| Option | What it does |
 |---|---|
-| `-o`, `--output-dir <carpeta>` | Una carpeta nueva o vacía. Por defecto, `funnelchat-contacts-export-<fecha>`. |
-| `--format csv\|jsonl` | CSV para planillas (por defecto) o JSONL, un contacto por línea tal como lo devuelve la API. |
-| `--tag <id>` | Solo contactos con esa etiqueta. Se puede repetir (`--tag 1 --tag 2`) o separar con comas. |
-| `--tag-mode any\|all\|exclude` | Con varias etiquetas: alguna, todas, o ninguna. |
-| `--created-from`, `--created-to` | Creados entre esas fechas (`AAAA-MM-DD`, los dos días enteros). Van juntas: la API pide las dos. |
-| `--only-with-phone` | Solo contactos a los que se les puede escribir. |
-| `--no-tags`, `--no-custom-fields` | Sin etiquetas o sin campos: cada una ahorra una llamada por contacto. |
-| `--resume` | Retoma una exportación cortada. Ver [Retomar](#retomar). |
+| `-o`, `--output-dir <dir>` | A new or empty folder. By default, `funnelchat-contacts-export-<date>`. |
+| `--format csv\|jsonl` | CSV for spreadsheets (the default) or JSONL, one contact per line as the API returns it. |
+| `--tag <id>` | Only contacts with that tag. It can be repeated (`--tag 1 --tag 2`) or comma-separated. |
+| `--tag-mode any\|all\|exclude` | With several tags: any of them, all of them, or none of them. |
+| `--created-from`, `--created-to` | Created between those dates (`YYYY-MM-DD`, both whole days). They go together: the API needs both. |
+| `--only-with-phone` | Only contacts that can be messaged. |
+| `--no-tags`, `--no-custom-fields` | Without tags or without fields: each one saves a call per contact. |
+| `--resume` | Resumes an interrupted export. See [Resuming](#resuming). |
 
-- **El CSV** trae una columna por dato del contacto (`id`, `name`, `phone`, `email`, `whatsapp_id`, `country_code`, `created_at`, `lead_score`…), `tags` (los nombres, separados por `; `) y `tag_ids`, y una columna `custom_field:<nombre>` por cada campo personalizado de tu cuenta. Va con BOM UTF-8 y fin de línea CRLF, para que Excel muestre bien los acentos.
-- **Una celda que empieza con `=`, `+`, `-` o `@`** (y no es un número) lleva un `'` adelante: los nombres los escriben tus contactos, y así tu planilla no los ejecuta como fórmulas.
-- **Tarda más con etiquetas y campos:** el listado de contactos no los trae, así que la CLI hace dos llamadas más por contacto. Al ritmo por defecto (1 por segundo), 1.000 contactos con todo son unas 2.010 llamadas, unos 35 minutos. Si no los necesitas, `--no-tags --no-custom-fields` lo baja a 10 llamadas.
-- **El orden** es por `id` ascendente.
+- **The CSV** has a column per contact field (`id`, `name`, `phone`, `email`, `whatsapp_id`, `country_code`, `created_at`, `lead_score`…), `tags` (the names, separated by `; `) and `tag_ids`, and a `custom_field:<name>` column for each custom field of your account. It has a UTF-8 BOM and CRLF line endings, so Excel shows accented characters correctly.
+- **A cell that starts with `=`, `+`, `-` or `@`** (and is not a number) gets a `'` in front: your contacts write their own names, and this way your spreadsheet does not run them as formulas.
+- **It takes longer with tags and fields:** the contacts listing does not include them, so the CLI makes two more calls per contact. At the default pace (1 per second), 1,000 contacts with everything are about 2,010 calls, about 35 minutes. If you do not need them, `--no-tags --no-custom-fields` brings it down to 10 calls.
+- **The order** is by ascending `id`.
 
 ### `funnelchat conversations export`
 
-Los mensajes de cada conversación (el historial de cada contacto), en partes JSONL, con `conversations.jsonl` y un manifiesto.
+The messages of every conversation (each contact's history), in JSONL parts, with `conversations.jsonl` and a manifest.
 
 ```bash
-funnelchat conversations export --output-dir ./conversaciones
-funnelchat conversations export --since 2026-10-01 -o ./octubre
-funnelchat conversations export --contact 2001 --contact 2002 -o ./dos-clientes
-funnelchat conversations export --device 3 --part-size 10000 -o ./ventas
+funnelchat conversations export --output-dir ./conversations
+funnelchat conversations export --since 2026-10-01 -o ./october
+funnelchat conversations export --contact 2001 --contact 2002 -o ./two-clients
+funnelchat conversations export --device 3 --part-size 10000 -o ./sales
 ```
 
 ```
-Exportando conversaciones a /Users/ana/octubre
-  conversaciones: 340
-  conversación 1 de 340 (contacto 2001): 128 mensajes · total 128
+Exporting conversations to /Users/ana/october
+  conversations: 340
+  conversation 1 of 340 (contact 2001): 128 messages · total 128
   …
-Exportación completa: 340 conversaciones y 21.450 mensajes en 1 parte, en /Users/ana/octubre.
+Export complete: 340 conversations and 21,450 messages in 1 part, in /Users/ana/october.
 ```
 
-| Opción | Qué hace |
+| Option | What it does |
 |---|---|
-| `-o`, `--output-dir <carpeta>` | Una carpeta nueva o vacía. Por defecto, `funnelchat-conversations-export-<fecha>`. |
-| `--since <fecha>` | Conversaciones y mensajes **creados o modificados** desde esa fecha. `AAAA-MM-DD` es desde las 00:00 UTC; también acepta fecha y hora con zona (`2026-10-01T09:00:00-03:00`). |
-| `--contact <id>` | Solo la conversación de ese contacto (el `id` de la API). Se puede repetir o separar con comas. |
-| `--device <id>` | Solo las conversaciones de ese número, y de ellas solo sus mensajes. |
-| `--part-size <n>` | Mensajes por parte. Por defecto, 50.000. |
-| `--resume` | Retoma una exportación cortada. Ver [Retomar](#retomar). |
+| `-o`, `--output-dir <dir>` | A new or empty folder. By default, `funnelchat-conversations-export-<date>`. |
+| `--since <date>` | Conversations and messages **created or changed** since that date. `YYYY-MM-DD` means from 00:00 UTC; it also takes a date and time with a zone (`2026-10-01T09:00:00-03:00`). |
+| `--contact <id>` | Only that contact's conversation (the API's `id`). It can be repeated or comma-separated. |
+| `--device <id>` | Only the conversations of that number, and of them only its messages. |
+| `--part-size <n>` | Messages per part. By default, 50,000. |
+| `--resume` | Resumes an interrupted export. See [Resuming](#resuming). |
 
-Lo que queda en la carpeta:
+What ends up in the folder:
 
 ```
-octubre/
-├── conversations.jsonl     una conversación por línea, como la devuelve GET /api/v1/conversations
-├── messages-00001.jsonl    un mensaje por línea, como lo devuelve GET /api/v1/contacts/{contactId}/messages
+october/
+├── conversations.jsonl     one conversation per line, as GET /api/v1/conversations returns it
+├── messages-00001.jsonl    one message per line, as GET /api/v1/contacts/{contactId}/messages returns it
 ├── messages-00002.jsonl
 └── manifest.json
 ```
 
-- **El orden:** las conversaciones en el orden de `conversations.jsonl`, de la de actividad más vieja a la más nueva; dentro de cada una, del mensaje más nuevo al más viejo (así los devuelve la API).
-- **Una parte se cierra al terminar una página**, así que puede pasarse de `--part-size` hasta en 100 mensajes.
-- **`--since` filtra por fecha de modificación**, no de envío: un mensaje viejo cuyo estado cambió después de esa fecha también entra. La API no tiene un filtro «hasta».
-- **`--device`** elige las conversaciones del lado de la API (`deviceId`); los mensajes los filtra la CLI, porque la API no filtra mensajes por número.
-- **Si un contacto se borra** mientras se exporta, se saltea y queda contado en el manifiesto (`vanished_contacts`).
+- **The order:** conversations in the order of `conversations.jsonl`, from the oldest activity to the newest; within each one, from the newest message to the oldest (that is how the API returns them).
+- **A part closes at the end of a page**, so it can go over `--part-size` by up to 100 messages.
+- **`--since` filters by modification date**, not by send date: an old message whose status changed after that date is included too. The API has no "until" filter.
+- **`--device`** picks the conversations on the API side (`deviceId`); the CLI filters the messages, because the API does not filter messages by number.
+- **If a contact is deleted** during the export, it is skipped and counted in the manifest (`vanished_contacts`).
 
 ### `funnelchat templates list`
 
-Tus plantillas de WhatsApp, con su estado y su número.
+Your WhatsApp templates, with their status and their number.
 
 ```bash
 funnelchat templates list --device 3 --status APPROVED
 ```
 
 ```
-id  nombre      idioma  categoría  estado    número
-45  bienvenida  es      UTILITY    APPROVED  3
+id  name     language  category  status    number
+45  welcome  es        UTILITY   APPROVED  3
 ```
 
 ### `funnelchat mac status`
 
-Cuántos contactos activos del mes (MACs) llevas en el período, el límite y cuántos te quedan. Si tu cuenta tiene el control de MAC por contacto, también cuántos contactos quedaron inactivos: a esos la API no les deja mandar mensajes con clave (`429 mac_lockout_24h`).
+How many monthly active contacts (MACs) you have used in the period, the limit and how many are left. If your account has per-contact MAC enforcement, also how many contacts became inactive: the API does not let you send them messages with a key (`429 mac_lockout_24h`).
 
 ```bash
 funnelchat mac status
 ```
 
 ```
-MACs del período: 120 de 1.000 (12 %) · quedan 880
-  estado normal · control del tope activado
+MACs in the period: 120 of 1,000 (12 %) · 880 left
+  state normal · cap enforcement on
 ```
 
-## Las exportaciones
+## Exports
 
-> **Datos personales.** Lo que exportas tiene datos personales de tus contactos: nombres, teléfonos y mensajes. Guárdalo en un lugar seguro, no lo compartas sin necesidad y bórralo cuando ya no lo uses.
+> **Personal data.** What you export holds your contacts' personal data: names, phone numbers and messages. Keep it somewhere safe, do not share it unless you need to, and delete it when you no longer use it.
 
-### Archivos que se pueden verificar
+### Files you can verify
 
-- **Nada se escribe con su nombre final hasta que está completo:** cada archivo se escribe como `<nombre>.part` y recién al terminar toma su nombre.
-- **Nunca se pisa un archivo:** la carpeta tiene que ser nueva o estar vacía, y el nombre final se toma de una forma que falla si alguien creó ese archivo mientras tanto.
-- **El manifiesto** (`manifest.json`) dice qué se exportó, de dónde y cómo verificarlo. Nunca incluye tu clave.
+- **Nothing gets its final name until it is complete:** each file is written as `<name>.part` and only takes its name at the end.
+- **A file is never overwritten:** the folder must be new or empty, and the final name is taken in a way that fails if someone created that file in the meantime.
+- **The manifest** (`manifest.json`) says what was exported, from where and how to verify it. It never includes your key.
 
 ```json
 {
@@ -286,119 +286,121 @@ MACs del período: 120 de 1.000 (12 %) · quedan 880
 }
 ```
 
-Para verificar una parte:
+To verify a part:
 
 ```bash
-shasum -a 256 octubre/messages-00001.jsonl    # en Linux: sha256sum
+shasum -a 256 october/messages-00001.jsonl    # on Linux: sha256sum
 ```
 
-`runs` dice cuántas veces se corrió (1 más una por cada `--resume`) y `observed_*_message_time` es el campo `time` de los mensajes, tal como lo devuelve la API (sin zona horaria).
+`runs` says how many times it ran (1 plus one per `--resume`), and `observed_*_message_time` is the `time` field of the messages, as the API returns it (without a time zone).
 
-### Retomar
+### Resuming
 
-Si una exportación se corta (Ctrl+C, la red, un límite de la API), lo exportado hasta la última página completa queda guardado y la CLI te dice cómo seguir:
+If an export gets interrupted (Ctrl+C, the network, an API limit), what was exported up to the last complete page is saved and the CLI tells you how to continue:
 
 ```
-error: No se pudo conectar con la API de Funnelchat (api.funnelchat.com).
-  Revisa tu conexión y la URL base, y vuelve a intentar.
-  Lo exportado hasta la última página completa quedó guardado. Para seguir desde ahí:
-  funnelchat contacts export --output-dir ./contactos --resume
+error: Could not connect to the Funnelchat API (api.funnelchat.com).
+  Check your connection and the base URL, and try again.
+  What was exported up to the last complete page is saved. To continue from there:
+  funnelchat contacts export --output-dir ./contacts --resume
 ```
 
 ```bash
-funnelchat contacts export --output-dir ./contactos --resume
+funnelchat contacts export --output-dir ./contacts --resume
 ```
 
-- **No se repite ninguna fila:** el estado se guarda después de cada página, y al retomar se descarta lo que se haya escrito después del último guardado.
-- **Con `--resume` no hace falta repetir las opciones:** se usan las de la exportación original. Si pasas una distinta, la CLI no sigue (para no mezclar dos exportaciones distintas en una carpeta). Retómala con la misma clave y la misma URL base.
-- **El estado** vive en `<carpeta>/.funnelchat-export.json` mientras la exportación no termina. Se borra al terminar.
-- **Si se borran contactos mientras se exporta**, la paginación por número de página de `GET /api/v1/contacts` puede saltear alguno: compara `counts.contacts` con `counts.api_total_at_start` en el manifiesto.
+- **No row is repeated:** the state is saved after every page, and on resuming anything written after the last save is discarded.
+- **With `--resume` there is no need to repeat the options:** the original export's are used. If you pass a different one, the CLI does not continue (so two different exports never mix in one folder). Resume it with the same key and the same base URL.
+- **The state** lives in `<dir>/.funnelchat-export.json` while the export is not finished. It is deleted at the end.
+- **If contacts are deleted during the export**, paging `GET /api/v1/contacts` by page number can skip some: compare `counts.contacts` with `counts.api_total_at_start` in the manifest.
 
-## Ser buen ciudadano con la API
+## Being a good citizen with the API
 
-- **Ritmo bajo:** como máximo 1 llamada por segundo, reintentos incluidos. Lo cambias con `--rate` (mayor que 0 y hasta 10; `0.5` es una cada dos segundos) o `FUNNELCHAT_RATE`. Los límites por minuto de la API se cuentan por usuario y tu panel los comparte: súbelo con cuidado.
-- **`429` y `503`:** la CLI espera exactamente lo que dice `Retry-After` y reintenta. Si pide más de 60 segundos (`--max-wait` lo cambia), corta con código `5` y te dice cuándo se reinicia.
-- **Errores del servidor y de red:** reintenta con espera exponencial (1 s, 2 s, 4 s… hasta 30 s), hasta 4 veces; también un `502 origin_unreachable` de la entrada de la API. **Solo reintenta lecturas**; la CLI no hace otra cosa. Un `500 edge_misconfigured` no se reintenta: es un problema de configuración de nuestro lado y esperar no lo arregla.
-- **El tope diario:** accounts y communities admiten hasta 10.000 llamadas por día por clave, cada una por su lado; conversations no tiene tope diario. Las exportaciones de contactos y conversaciones usan solo conversations; `whoami` y `numbers` usan accounts. Si se alcanza, la CLI corta con un mensaje claro y la hora del reinicio, y la exportación queda para retomar.
+- **Low pace:** at most 1 call per second, retries included. Change it with `--rate` (greater than 0 and up to 10; `0.5` is one every two seconds) or `FUNNELCHAT_RATE`. The API's per-minute limits are counted per user and your panel shares them: raise it carefully.
+- **`429` and `503`:** the CLI waits exactly what `Retry-After` says and retries. If it asks for more than 60 seconds (`--max-wait` changes that), it stops with code `5` and tells you when it resets.
+- **Server and network errors:** it retries with exponential backoff (1 s, 2 s, 4 s… up to 30 s), up to 4 times; also a `502 origin_unreachable` from the API's entry point. **It only retries reads**; the CLI does nothing else. A `500 edge_misconfigured` is not retried: it is a configuration problem on our side and waiting does not fix it.
+- **The daily cap:** accounts and communities allow up to 10,000 calls per day per key, each on its own; conversations has no daily cap. The contacts and conversations exports use only conversations; `whoami` and `numbers` use accounts. If the cap is reached, the CLI stops with a clear message and the reset time, and the export can be resumed.
 
-## Para scripts
+## For scripts
 
-**`--json`** en cualquier comando: el resultado sale en stdout como un solo documento JSON; el progreso y los avisos van a stderr. Un error es un objeto JSON en stderr:
+**`--json`** on any command: the result goes to stdout as a single JSON document; progress and warnings go to stderr. An error is a JSON object on stderr:
 
 ```json
-{"error":{"code":"daily_cap_exceeded","message":"Se alcanzó el tope diario de llamadas de accounts para esta clave. Se reinicia en 8 h 30 min (a las 20:30 UTC del 2026-10-16).","hint":"Id del pedido (X-Request-Id): 3f6c1a52-8d0e-4b7a-9c1e-5a2b7d4e9f10. Cítalo, con la hora aproximada, si lo reportas a soporte.","exit_code":5,"status":429,"route":"GET /api/v1/devices","api_error":"daily_cap_exceeded","retry_after":30600,"request_id":"3f6c1a52-8d0e-4b7a-9c1e-5a2b7d4e9f10","resets_at":"2026-10-16T20:30:00.000Z"}}
+{"error":{"code":"daily_cap_exceeded","message":"The daily cap of calls to accounts was reached for this key. It resets in 8 h 30 min (at 20:30 UTC on 2026-10-16).","hint":"Request id (X-Request-Id): 3f6c1a52-8d0e-4b7a-9c1e-5a2b7d4e9f10. Quote it, with the approximate time, if you report this to support.","exit_code":5,"status":429,"route":"GET /api/v1/devices","api_error":"daily_cap_exceeded","retry_after":30600,"request_id":"3f6c1a52-8d0e-4b7a-9c1e-5a2b7d4e9f10","resets_at":"2026-10-16T20:30:00.000Z"}}
 ```
 
-**El id del pedido.** Cada respuesta de la API trae `X-Request-Id`, también los errores. La CLI lo muestra en cada error que vino de la API (en `request_id` con `--json`) y en cada respuesta con `--verbose`. Si reportas un problema, cítalo junto con la hora aproximada: con ese id soporte encuentra la llamada. Un error de red no tiene id: la API nunca respondió.
+**The request id.** Every answer of the API carries `X-Request-Id`, errors included. The CLI shows it in every error that came from the API (in `request_id` with `--json`) and on every answer with `--verbose`. If you report a problem, quote it together with the approximate time: with that id support finds the call. A network error has no id: the API never answered.
 
-**Otras opciones globales:** `-q`/`--quiet` (sin progreso), `-v`/`--verbose` (cada pedido a la API, con método, URL, código, tiempo y `X-Request-Id`; nunca la clave).
+**Other global options:** `-q`/`--quiet` (no progress), `-v`/`--verbose` (every request to the API, with method, URL, status, timing and `X-Request-Id`; never the key).
 
-### Códigos de salida
+The CLI asks the API for its messages in Spanish (`Accept-Language: es`), so the `message` the API returns, which the CLI appends to some errors, comes in Spanish. Decide by the exit code and by `code`, not by the text.
 
-| Código | Qué pasó |
+### Exit codes
+
+| Code | What happened |
 |---|---|
-| `0` | Todo bien. |
-| `1` | Un error inesperado. |
-| `2` | Uso incorrecto: una opción o un valor inválido, o `--resume` con opciones distintas de las originales. |
-| `3` | Sin clave, una clave que la API rechaza (`401`) o sin el permiso que pide la ruta (`403`). |
-| `4` | No existe en tu cuenta (`404`), o la ruta no existe en la API (`404 route_not_found`). |
-| `5` | Un límite de la API que la CLI no espera sola: el tope diario o un `Retry-After` largo. Se puede retomar. |
-| `6` | La API falló (`5xx`, `422`…) o no se pudo conectar, después de los reintentos. |
-| `7` | La salida ya existe: la CLI nunca pisa un archivo. |
-| `130` | Interrumpido con Ctrl+C. Una exportación se puede retomar. |
+| `0` | All good. |
+| `1` | An unexpected error. |
+| `2` | Wrong usage: an invalid option or value, or `--resume` with options different from the original ones. |
+| `3` | No key, a key the API rejects (`401`) or a key without the permission the route needs (`403`). |
+| `4` | Not found in your account (`404`), or the route does not exist in the API (`404 route_not_found`). |
+| `5` | An API limit the CLI does not wait for on its own: the daily cap or a long `Retry-After`. It can be resumed. |
+| `6` | The API failed (`5xx`, `422`…) or could not be reached, after the retries. |
+| `7` | The output already exists: the CLI never overwrites a file. |
+| `130` | Interrupted with Ctrl+C. An export can be resumed. |
 
-## Lo que la API todavía no permite
+## What the API does not allow yet
 
-La CLI usa solo rutas que existen en la especificación pública (`spec/routes-used.json` las lista y la generación falla si una no está). Lo que buscamos y no está:
+The CLI uses only routes that exist in the public spec (`spec/routes-used.json` lists them and the generation fails if one is missing). What we looked for and is not there:
 
-- **Una exportación del lado del servidor** (como la de otras plataformas): por eso la CLI pagina.
-- **Un listado de mensajes de toda la cuenta:** solo existe el historial por contacto, así que la CLI recorre las conversaciones y pide el de cada una.
-- **Un filtro «hasta»** en conversaciones y mensajes, ni un filtro por fecha de envío: solo `updated_since`, por fecha de modificación.
-- **Un filtro por número en los mensajes:** con `--device` filtra la CLI.
-- **Etiquetas y campos en el listado de contactos:** se piden contacto por contacto.
-- **Un filtro de contactos por fecha de modificación,** para una exportación incremental de contactos: solo hay fecha de alta.
-- **Métricas de mensajes** (enviados, entregados y leídos por día), ni de la cuenta ni por plantilla.
-- **Los datos de la propia clave** (su nombre y sus permisos): `whoami` muestra la cuenta, no la clave.
+- **A server-side export** (like other platforms have): that is why the CLI pages.
+- **A listing of every message of the account:** only the per-contact history exists, so the CLI walks the conversations and asks for each one's.
+- **An "until" filter** on conversations and messages, or a filter by send date: only `updated_since`, by modification date.
+- **A filter by number on messages:** with `--device`, the CLI filters.
+- **Tags and fields in the contacts listing:** they are requested contact by contact.
+- **A filter of contacts by modification date,** for an incremental contacts export: there is only the creation date.
+- **Message metrics** (sent, delivered and read per day), neither for the account nor per template.
+- **The key's own data** (its name and its permissions): `whoami` shows the account, not the key.
 
-## Lo que viene
+## Coming next
 
-- **`templates metrics`**: lo que Meta informa de cada plantilla por día (enviados, entregados, leídos, clics y costo). Vuelve a la CLI cuando la API tenga la ruta en producción (`GET /api/v1/templates/{template}/metrics`, hoy en un cambio de conversations sin desplegar). Se sacó el 22-10 para limitarse a lo que la API ya tiene.
+- **`templates metrics`**: what Meta reports for each template per day (sent, delivered, read, clicks and cost). It comes back to the CLI when the API has the route in production (`GET /api/v1/templates/{template}/metrics`, today in an undeployed change of conversations). It was removed on 2026-10-22 to stick to what the API already has.
 
-## De dónde sale la especificación
+## Where the spec comes from
 
-`spec/funnelchat.json` es la instantánea unificada del portal (developers-portal, rama `feat/openapi-unificada` @ `0ef4abb`, mergeada en `main` el 2026-10-21), armada con las instantáneas de los dominios del 13-10. El 22-10 se revisó cada comando contra el código en producción (conversations `v1.18.10`, accounts `v1.4.24`, api-edge `v0.3.0`): las rutas y los parámetros que usa la CLI no cambiaron.
+`spec/funnelchat.json` is the portal's unified snapshot (developers-portal, branch `feat/openapi-unificada` @ `0ef4abb`, merged into `main` on 2026-10-21), built from the domains' snapshots of 2026-10-13. On 2026-10-22 every command was checked against the code in production (conversations `v1.18.10`, accounts `v1.4.24`, api-edge `v0.3.0`): the routes and parameters the CLI uses did not change.
 
-## Desarrollo
+## Development
 
 ```bash
 npm install
-npm test              # sin red ni claves reales
+npm test              # no network, no real keys
 npm run lint && npm run typecheck
 npm run build
 ```
 
-Para desarrollar necesitas Node 20 o posterior (por las herramientas de tests); la CLI que se construye corre en Node 18.
+To develop you need Node 20 or later (for the test tools); the CLI it builds runs on Node 18.
 
-**Los tests** usan respuestas simuladas, con las mismas formas que la API (páginas por número y por cursor). Cubren la paginación, retomar, los `429`, que la clave no aparezca en ninguna salida ni en ningún archivo, que no se pise un archivo y el SHA-256 del manifiesto.
+**The tests** use simulated answers, with the same shapes as the API (pages by number and by cursor). They cover paging, resuming, `429`s, that the key never shows up in any output or any file, that no file is overwritten, and the manifest's SHA-256.
 
-**De punta a punta contra el sandbox.** Con un checkout de [funnelchat-sandbox](https://github.com/Funnelchat20/funnelchat-sandbox) ya construido (`npm install && npm run build` en su carpeta), este test lo levanta en el mismo proceso, en un puerto libre, y corre la CLI contra él. No toca el repo del sandbox:
+**End to end against the sandbox.** With an already built checkout of [funnelchat-sandbox](https://github.com/Funnelchat20/funnelchat-sandbox) (`npm install && npm run build` in its folder), this test starts it in the same process, on a free port, and runs the CLI against it. It does not touch the sandbox's repository:
 
 ```bash
 FUNNELCHAT_SANDBOX_DIR=../funnelchat-sandbox npm run test:e2e
 ```
 
-Sin esa variable, `npm test` lo saltea.
+Without that variable, `npm test` skips it.
 
-**La especificación.** Se copia y se regenera con un solo script, que guarda de dónde salió en `spec/procedencia.json` y comprueba que cada ruta y cada parámetro que usa la CLI existan:
+**The spec.** It is copied and regenerated with a single script, which records where it came from in `spec/procedencia.json` and checks that every route and every parameter the CLI uses exists:
 
 ```bash
-npm run generate -- --spec ../developers-portal/out/specs/funnelchat.json   # una instantánea nueva
-npm run generate                                                             # regenerar
-npm run generate:check                                                       # ¿está al día?
+npm run generate -- --spec ../developers-portal/out/specs/funnelchat.json   # a new snapshot
+npm run generate                                                             # regenerate
+npm run generate:check                                                       # is it up to date?
 ```
 
-`spec/pending.json` es para una ruta que todavía no está en la instantánea; hoy está vacío. Cuando una instantánea nueva trae una ruta de ahí, la generación avisa que se puede borrar.
+`spec/pending.json` is for a route that is not in the snapshot yet; today it is empty. When a new snapshot has a route from there, the generation says it can be deleted.
 
-## Licencia
+## License
 
-MIT. Ver [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

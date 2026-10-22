@@ -6,7 +6,7 @@ describe('X-Request-Id', () => {
     const account = new FakeAccount().hook((r) => (r.path === '/api/v1/me' ? { status: 403, body: { error: 'permission_denied', message: 'Sin permiso.' } } : undefined));
     const human = await cli(['whoami'], { fetch: account.fetch().fetch, cwd: tempDir() });
     expect(human.code).toBe(3);
-    expect(human.stderr).toContain(`Id del pedido (X-Request-Id): ${requestIdOf(1)}`);
+    expect(human.stderr).toContain(`Request id (X-Request-Id): ${requestIdOf(1)}`);
 
     const json = await cli(['--json', 'whoami'], { fetch: new FakeAccount().hook(() => ({ status: 401, body: { error: 'unauthenticated' } })).fetch().fetch, cwd: tempDir() });
     expect(JSON.parse(json.stderr).error).toMatchObject({ code: 'unauthenticated', request_id: requestIdOf(1), exit_code: 3 });
@@ -39,7 +39,7 @@ describe("the API entry's own errors", () => {
     expect(result.code).toBe(6);
     expect(calls).toHaveLength(1);
     expect(result.stderr).toContain('500 edge_misconfigured');
-    expect(result.stderr).toContain('repórtalo');
+    expect(result.stderr).toContain('please report it');
     expect(result.stderr).toContain(requestIdOf(1));
   });
 
@@ -66,7 +66,7 @@ describe("the API entry's own errors", () => {
     const account = new FakeAccount().hook(() => ({ status: 404, body: { error: 'route_not_found', message: 'La ruta no existe en la API.' } }));
     const result = await cli(['mac', 'status'], { fetch: account.fetch().fetch, cwd: tempDir() });
     expect(result.code).toBe(4);
-    expect(result.stderr).toContain('La ruta no existe en la API');
-    expect(result.stderr).not.toContain('No existe en tu cuenta');
+    expect(result.stderr).toContain('The route does not exist in the API');
+    expect(result.stderr).not.toContain('Not found in your account');
   });
 });

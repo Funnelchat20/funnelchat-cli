@@ -37,10 +37,10 @@ export interface FileEntry {
 }
 
 export function outputExists(path: string): CliError {
-  return new CliError(`Ya existe ${path}: la CLI nunca pisa un archivo.`, {
+  return new CliError(`${path} already exists: the CLI never overwrites a file.`, {
     exitCode: ExitCode.EXISTS,
     code: 'output_exists',
-    hint: 'Elige otra carpeta con --output-dir, o mueve ese archivo.',
+    hint: 'Choose another folder with --output-dir, or move that file.',
     details: { path },
   });
 }
@@ -169,7 +169,7 @@ export class PartFile {
       if (existsSync(partPath)) throw outputExists(finalPath);
       const size = statSync(finalPath).size;
       if (size !== position.offset) {
-        throw inconsistent(`${basename(finalPath)} mide ${size} bytes y el estado guardado dice ${position.offset}`);
+        throw inconsistent(`${basename(finalPath)} is ${size} bytes and the saved state says ${position.offset}`);
       }
       return { path: basename(finalPath), rows: position.rows, bytes: size, sha256: sha256File(finalPath) };
     }
@@ -181,7 +181,7 @@ export class PartFile {
     const size = fstatSync(fd).size;
     if (size < position.offset) {
       closeSync(fd);
-      throw inconsistent(`${basename(partPath)} mide ${size} bytes y el estado guardado dice ${position.offset}`);
+      throw inconsistent(`${basename(partPath)} is ${size} bytes and the saved state says ${position.offset}`);
     }
     if (size > position.offset) ftruncateSync(fd, position.offset);
     return new PartFile(finalPath, fd, position);
@@ -228,15 +228,15 @@ export class PartFile {
   }
 
   private get fd(): number {
-    if (this.#fd === null) throw new Error(`${this.partPath} ya está cerrado.`);
+    if (this.#fd === null) throw new Error(`${this.partPath} is already closed.`);
     return this.#fd;
   }
 }
 
 function inconsistent(detail: string): CliError {
-  return new CliError(`No se puede retomar: el estado de la exportación no coincide con los archivos (${detail}).`, {
+  return new CliError(`Cannot resume: the state of the export does not match the files (${detail}).`, {
     exitCode: ExitCode.USAGE,
     code: 'resume_inconsistent',
-    hint: 'Empieza la exportación de nuevo en otra carpeta.',
+    hint: 'Start the export again in another folder.',
   });
 }

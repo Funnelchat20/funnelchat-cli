@@ -3,7 +3,7 @@ import { usageError } from '../errors.js';
 
 export function positiveInt(value: string, flag: string): number {
   if (!/^\d+$/.test(value) || Number(value) < 1 || !Number.isSafeInteger(Number(value))) {
-    throw usageError(`${flag} tiene que ser un número entero positivo: ${value}`);
+    throw usageError(`${flag} must be a positive integer: ${value}`);
   }
   return Number(value);
 }

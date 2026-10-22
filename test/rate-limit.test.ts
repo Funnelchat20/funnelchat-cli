@@ -29,7 +29,7 @@ describe('429 and Retry-After', () => {
     const result = await cli(['numbers', 'list'], { fetch, cwd: tempDir() });
     expect(result.code).toBe(ExitCode.RATE_LIMITED);
     expect(calls).toHaveLength(1);
-    expect(result.stderr).toContain('tope diario de llamadas de accounts');
+    expect(result.stderr).toContain('daily cap of calls to accounts');
     expect(result.stderr).toContain('8 h 30 min');
     expect(result.stderr).toContain('UTC');
     expect(Math.max(0, ...result.sleeps)).toBeLessThan(60_000);
@@ -53,7 +53,7 @@ describe('429 and Retry-After', () => {
     );
     const result = await cli(['contacts', 'export', '-o', 'out'], { fetch: account.fetch().fetch, cwd: tempDir() });
     expect(result.code).toBe(5);
-    expect(result.stderr).toContain('tope diario');
+    expect(result.stderr).toContain('daily cap');
     expect(result.stderr).toContain('funnelchat contacts export --output-dir out --resume');
   });
 

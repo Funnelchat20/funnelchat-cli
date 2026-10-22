@@ -20,7 +20,7 @@ import { type FileEntry, PartFile, type PartPosition } from '../export/files.js'
 import { baseManifest, type BaseState, ExportSession, type Manifest, quote } from '../export/session.js';
 import { VERSION } from '../version.js';
 import { idList } from './common.js';
-import { finishExport, formatCount, withResumeHint } from './export-common.js';
+import { countOf, finishExport, formatCount, withResumeHint } from './export-common.js';
 
 export interface ContactsExportFlags {
   outputDir?: string;
@@ -98,13 +98,13 @@ const PER_PAGE = 100;
 
 function normalize(flags: ContactsExportFlags): ContactsOptions {
   const format = (flags.format ?? 'csv').toLowerCase();
-  if (format !== 'csv' && format !== 'jsonl') throw usageError(`--format tiene que ser csv o jsonl: ${flags.format}`);
+  if (format !== 'csv' && format !== 'jsonl') throw usageError(`--format must be csv or jsonl: ${flags.format}`);
   const tagMode = flags.tagMode?.toLowerCase() ?? null;
-  if (tagMode !== null && !['any', 'all', 'exclude'].includes(tagMode)) throw usageError(`--tag-mode tiene que ser any, all o exclude: ${flags.tagMode}`);
+  if (tagMode !== null && !['any', 'all', 'exclude'].includes(tagMode)) throw usageError(`--tag-mode must be any, all or exclude: ${flags.tagMode}`);
   const tagIds = idList(flags.tag, '--tag');
-  if (tagMode !== null && tagIds.length === 0) throw usageError('--tag-mode necesita al menos un --tag.');
+  if (tagMode !== null && tagIds.length === 0) throw usageError('--tag-mode needs at least one --tag.');
   if (Boolean(flags.createdFrom) !== Boolean(flags.createdTo)) {
-    throw usageError('--created-from y --created-to van juntos: la API pide los dos.', 'Para "desde una fecha hasta hoy", pon hoy en --created-to.');
+    throw usageError('--created-from and --created-to go together: the API needs both.', 'For "from a date until today", put today in --created-to.');
   }
   return {
     format,
@@ -132,7 +132,7 @@ function listQuery(options: ContactsOptions): Record<string, unknown> {
 
 export async function contactsExport(ctx: Context, flags: ContactsExportFlags, explicitFlags: Set<string>): Promise<void> {
   const resume = flags.resume === true;
-  if (resume && !flags.outputDir) throw usageError('--resume necesita la --output-dir de la exportación que se cortó.');
+  if (resume && !flags.outputDir) throw usageError('--resume needs the --output-dir of the export that was interrupted.');
   const options = normalize(flags);
   const { baseUrl } = ctx.credentials();
   const client = ctx.client();
@@ -167,7 +167,7 @@ export async function contactsExport(ctx: Context, flags: ContactsExportFlags, e
     }),
   });
   if ('alreadyComplete' in opened) {
-    ctx.out.result({ status: 'already_complete', manifest: opened.alreadyComplete }, () => `La exportación ya estaba completa: ${opened.alreadyComplete}`);
+    ctx.out.result({ status: 'already_complete', manifest: opened.alreadyComplete }, () => `The export was already complete: ${opened.alreadyComplete}`);
     return;
   }
 
@@ -183,7 +183,7 @@ export async function contactsExport(ctx: Context, flags: ContactsExportFlags, e
   let file: PartFile | null = null;
 
   try {
-    ctx.out.progress(resume ? `Retomando la exportación de contactos en ${session.dir}` : `Exportando contactos a ${session.dir}`);
+    ctx.out.progress(resume ? `Resuming the contacts export in ${session.dir}` : `Exporting contacts to ${session.dir}`);
 
     if (o.format === 'csv' && o.with_custom_fields && state.columns === null) {
       const columns: { id: number; name: string }[] = [];
@@ -235,7 +235,7 @@ export async function contactsExport(ctx: Context, flags: ContactsExportFlags, e
         state.done = page.next === null;
         countCalls();
         session.save();
-        ctx.out.progress(`  contactos: ${formatCount(state.file.rows)}${state.api_total_at_start !== null ? ` de ${formatCount(state.api_total_at_start)}` : ''}`);
+        ctx.out.progress(`  contacts: ${formatCount(state.file.rows)}${state.api_total_at_start !== null ? ` of ${formatCount(state.api_total_at_start)}` : ''}`);
       }
       entry = file.finalize();
       file = null;
@@ -258,18 +258,18 @@ export async function contactsExport(ctx: Context, flags: ContactsExportFlags, e
       },
       files: [entry],
       notes: [
-        'Contactos ordenados por id ascendente, como los pagina GET /api/v1/contacts (por número de página).',
-        'Si se borran contactos mientras se exporta, la paginación por número de página puede saltear alguno: compara counts.contacts con counts.api_total_at_start.',
-        ...(o.with_tags ? ['Etiquetas: GET /api/v1/contacts/{contact}/tags, una consulta por contacto (el listado no las trae).'] : []),
+        'Contacts ordered by ascending id, as GET /api/v1/contacts pages them (by page number).',
+        'If contacts are deleted during the export, paging by page number can skip some: compare counts.contacts with counts.api_total_at_start.',
+        ...(o.with_tags ? ['Tags: GET /api/v1/contacts/{contact}/tags, one request per contact (the listing does not include them).'] : []),
         ...(o.with_custom_fields
-          ? ['Campos personalizados: GET /api/v1/contacts/{contact}/custom-fields, una consulta por contacto (el listado no los trae).']
+          ? ['Custom fields: GET /api/v1/contacts/{contact}/custom-fields, one request per contact (the listing does not include them).']
           : []),
         ...(o.format === 'csv'
-          ? ["CSV con BOM UTF-8 y fin de línea CRLF. Una celda que empieza con =, +, - o @ (y no es un número) lleva un ' adelante para que la planilla no la ejecute como fórmula."]
+          ? ["CSV with a UTF-8 BOM and CRLF line endings. A cell that starts with =, +, - or @ (and is not a number) gets a ' in front so the spreadsheet does not run it as a formula."]
           : []),
       ],
     };
-    finishExport(ctx, session, manifest, `${formatCount(entry.rows)} contactos en ${session.path(entry.path)}`);
+    finishExport(ctx, session, manifest, `${countOf(entry.rows, 'contact')} in ${session.path(entry.path)}`);
   } catch (error) {
     throw withResumeHint(error, resumeCommand);
   } finally {

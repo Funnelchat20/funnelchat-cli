@@ -90,7 +90,7 @@ describe('the key never shows up', () => {
     // Later commands use the saved profile and still never print it.
     const whoami = await cli(['-v', 'whoami'], { fetch: account.fetch().fetch, cwd, env: { FUNNELCHAT_API_KEY: undefined } });
     expect(whoami.code).toBe(0);
-    expect(whoami.stdout).toContain('del perfil "default"');
+    expect(whoami.stdout).toContain('from the "default" profile');
     expectNoSecret(whoami.stdout + whoami.stderr, 'whoami');
   });
 
@@ -115,6 +115,6 @@ describe('the key never shows up', () => {
     redactor.add(TEST_KEY);
     const out = redactor.redact(`a ${TEST_KEY} b ${TEST_SECRET} c 9|fc_live_OtraClave99 d`);
     expect(out).not.toContain('fc_live_');
-    expect(out).toContain('[clave oculta]');
+    expect(out).toContain('[key hidden]');
   });
 });

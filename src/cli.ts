@@ -6,12 +6,12 @@ let interrupted = false;
 process.on('SIGINT', () => {
   if (interrupted) process.exit(130);
   interrupted = true;
-  process.stderr.write('\nCortando… (Ctrl+C otra vez para salir ya)\n');
+  process.stderr.write('\nStopping… (Ctrl+C again to quit now)\n');
   controller.abort();
 });
 
 if (typeof globalThis.fetch !== 'function') {
-  process.stderr.write('error: esta versión de Node no tiene fetch. Usa Node 18 o posterior.\n');
+  process.stderr.write('error: this version of Node has no fetch. Use Node 18 or later.\n');
   process.exit(1);
 }
 

@@ -4,7 +4,7 @@
  * with what to do next.
  */
 
-/** Exit codes. Documented in the README ("Códigos de salida"); scripts can rely on them. */
+/** Exit codes. Documented in the README ("Exit codes"); scripts can rely on them. */
 export const ExitCode = {
   OK: 0,
   /** Something the CLI did not expect. */
@@ -124,7 +124,7 @@ export class ApiError extends CliError {
 /** The hint plus the line with the id to cite, when the response had one. */
 function withRequestId(hint: string | undefined, requestId: string | undefined): string | undefined {
   if (!requestId) return hint;
-  const cite = `Id del pedido (X-Request-Id): ${requestId}. Cítalo, con la hora aproximada, si lo reportas a soporte.`;
+  const cite = `Request id (X-Request-Id): ${requestId}. Quote it, with the approximate time, if you report this to support.`;
   return hint ? `${hint}\n${cite}` : cite;
 }
 
@@ -140,63 +140,63 @@ function describe(
   if (status === 401) {
     return {
       exitCode: ExitCode.AUTH,
-      message: `La API rechazó la clave (401 en ${where})${said}`,
-      hint: 'Revisa que la clave esté completa (con el `<id>|` del principio) y siga activa, y vuelve a correr `funnelchat login`.',
+      message: `The API rejected the key (401 on ${where})${said}`,
+      hint: 'Check that the key is complete (with the `<id>|` at the start) and still active, and run `funnelchat login` again.',
     };
   }
   if (status === 403) {
-    const permission = init.permission ? ` Esta ruta pide \`${init.permission}\`.` : '';
+    const permission = init.permission ? ` This route needs \`${init.permission}\`.` : '';
     return {
       exitCode: ExitCode.AUTH,
-      message: `La clave no puede usar ${where} (403${apiCode ? ` ${apiCode}` : ''})${said}`,
-      hint: apiCode === 'route_not_available' ? 'Ninguna clave la habilita por ahora.' : `Crea una clave con el permiso que falta.${permission}`,
+      message: `The key cannot use ${where} (403${apiCode ? ` ${apiCode}` : ''})${said}`,
+      hint: apiCode === 'route_not_available' ? 'No key enables it for now.' : `Create a key with the missing permission.${permission}`,
     };
   }
   if (status === 404 && apiCode === 'route_not_found') {
     return {
       exitCode: ExitCode.NOT_FOUND,
-      message: `La ruta no existe en la API (404 route_not_found en ${where}).`,
-      hint: 'La CLI solo llama rutas de la referencia de la API: revisa que la URL base sea la de la API pública (https://api.funnelchat.com) y que tengas la última versión de la CLI.',
+      message: `The route does not exist in the API (404 route_not_found on ${where}).`,
+      hint: 'The CLI only calls routes of the API reference: check that the base URL is the public API\'s (https://api.funnelchat.com) and that you have the latest version of the CLI.',
     };
   }
   if (status === 404) {
-    return { exitCode: ExitCode.NOT_FOUND, message: `No existe en tu cuenta (404 en ${where})${said}` };
+    return { exitCode: ExitCode.NOT_FOUND, message: `Not found in your account (404 on ${where})${said}` };
   }
   if (status === 429) {
-    return { exitCode: ExitCode.RATE_LIMITED, message: `La API pidió esperar (429${apiCode ? ` ${apiCode}` : ''} en ${where})${said}` };
+    return { exitCode: ExitCode.RATE_LIMITED, message: `The API asked to wait (429${apiCode ? ` ${apiCode}` : ''} on ${where})${said}` };
   }
   if (status === 422 && fieldErrors) {
     const first = Object.entries(fieldErrors)[0];
     const detail = first ? ` ${first[0]}: ${first[1]?.[0] ?? ''}` : '';
-    return { exitCode: ExitCode.API, message: `La API no aceptó la consulta (422 en ${where})${said}${detail ? `\n ${detail}` : ''}` };
+    return { exitCode: ExitCode.API, message: `The API did not accept the request (422 on ${where})${said}${detail ? `\n ${detail}` : ''}` };
   }
   if (status === 500 && apiCode === 'edge_misconfigured') {
     return {
       exitCode: ExitCode.API,
-      message: `La API no está disponible en este momento (500 edge_misconfigured en ${where}): la entrada de la API no está configurada para llegar a esta área.`,
-      hint: 'Es un problema del lado de Funnelchat: repórtalo.',
+      message: `The API is not available right now (500 edge_misconfigured on ${where}): the API's entry point is not configured to reach this area.`,
+      hint: 'It is a problem on Funnelchat\'s side: please report it.',
     };
   }
   if (status === 502 && apiCode === 'origin_unreachable') {
     return {
       exitCode: ExitCode.API,
-      message: `La API no está disponible en este momento (502 origin_unreachable en ${where}): la entrada de la API no pudo comunicarse con el área que atiende la ruta.`,
-      hint: 'Vuelve a intentar en unos minutos; si sigue, repórtalo.',
+      message: `The API is not available right now (502 origin_unreachable on ${where}): the API's entry point could not reach the area that serves the route.`,
+      hint: 'Try again in a few minutes; if it persists, please report it.',
     };
   }
-  return { exitCode: ExitCode.API, message: `La API respondió ${status}${apiCode ? ` ${apiCode}` : ''} en ${where}${said}` };
+  return { exitCode: ExitCode.API, message: `The API answered ${status}${apiCode ? ` ${apiCode}` : ''} on ${where}${said}` };
 }
 
 /** The request never got an answer: DNS, connection refused, reset, TLS, timeout. */
 export class ConnectionError extends CliError {
   constructor(message: string, cause?: unknown) {
-    super(message, { exitCode: ExitCode.API, code: 'connection_error', hint: 'Revisa tu conexión y la URL base, y vuelve a intentar.', cause });
+    super(message, { exitCode: ExitCode.API, code: 'connection_error', hint: 'Check your connection and the base URL, and try again.', cause });
   }
 }
 
 export class InterruptedError extends CliError {
   constructor() {
-    super('Se interrumpió.', { exitCode: ExitCode.INTERRUPTED, code: 'interrupted' });
+    super('Interrupted.', { exitCode: ExitCode.INTERRUPTED, code: 'interrupted' });
   }
 }
 

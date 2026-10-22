@@ -49,7 +49,7 @@ export class Output {
 
   /** A warning (stderr), always shown. */
   warn(line: string): void {
-    this.#lines(this.stderr, `aviso: ${line}`);
+    this.#lines(this.stderr, `warning: ${line}`);
   }
 
   /** `--verbose` only (stderr). */
@@ -92,7 +92,7 @@ export class Output {
 export function toCliError(error: unknown): CliError {
   if (error instanceof CliError) return error;
   const message = error instanceof Error ? error.message : String(error);
-  return new CliError(`Error inesperado: ${message}`, { exitCode: ExitCode.UNEXPECTED, code: 'unexpected', cause: error });
+  return new CliError(`Unexpected error: ${message}`, { exitCode: ExitCode.UNEXPECTED, code: 'unexpected', cause: error });
 }
 
 /** A plain-text table: columns padded to their widest cell. */

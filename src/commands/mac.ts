@@ -17,13 +17,13 @@ import type { Context } from '../context.js';
 export async function macStatus(ctx: Context): Promise<void> {
   const body = await ctx.client().get(routes.macStatus);
   const status = isRecord(body) ? body : { value: body };
-  const n = (value: unknown) => (typeof value === 'number' ? value.toLocaleString('es-AR') : '-');
+  const n = (value: unknown) => (typeof value === 'number' ? value.toLocaleString('en-US') : '-');
   const count = status.current_count ?? status.mac_count;
   const limit = status.limit ?? status.cycle_capacity;
   const remaining = status.remaining ?? status.total_available;
   ctx.out.result({ mac: status }, () => [
-    `MACs del período: ${n(count)} de ${n(limit)} (${n(status.usage_percentage)} %) · quedan ${n(remaining)}`,
-    `  estado ${String(status.state ?? '-')} · control del tope ${status.enforcement_enabled === true ? 'activado' : status.enforcement_enabled === false ? 'desactivado' : '-'}`,
-    ...(typeof status.inactive_contacts_count === 'number' ? [`  contactos inactivos por MAC: ${n(status.inactive_contacts_count)} (no reciben envíos con clave: 429 mac_lockout_24h)`] : []),
+    `MACs in the period: ${n(count)} of ${n(limit)} (${n(status.usage_percentage)} %) · ${n(remaining)} left`,
+    `  state ${String(status.state ?? '-')} · cap enforcement ${status.enforcement_enabled === true ? 'on' : status.enforcement_enabled === false ? 'off' : '-'}`,
+    ...(typeof status.inactive_contacts_count === 'number' ? [`  contacts inactive by MAC: ${n(status.inactive_contacts_count)} (sends with a key to them get 429 mac_lockout_24h)`] : []),
   ]);
 }

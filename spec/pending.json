@@ -1,7 +1,7 @@
 {
   "x-fc-pending": {
-    "title": "Pendiente de la especificación",
-    "description": "Rutas que la API tiene en una rama sin mergear y que la instantánea de spec/funnelchat.json todavía no trae. scripts/generate.mjs las suma solo mientras la instantánea no las tenga: cuando una instantánea nueva trae la ruta, la generación usa la de la instantánea y avisa que la entrada de este archivo ya se puede borrar. Vacío desde el 22-10: la CLI se limita a lo que está en production.",
+    "title": "Pending part of the spec",
+    "description": "Routes the API has on an unmerged branch that the snapshot in spec/funnelchat.json does not have yet. scripts/generate.mjs adds them only while the snapshot lacks them: when a new snapshot has the route, the generation uses the snapshot's and says that the entry in this file can be deleted. Empty since 2026-10-22: the CLI limits itself to what is in production.",
     "sources": {}
   },
   "paths": {}

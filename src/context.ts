@@ -66,7 +66,7 @@ export class Context {
       for (const profile of Object.values(this.#config.config.profiles)) this.redactor.add(profile.api_key);
       if (this.#config.insecurePermissions && !this.#warnedConfig) {
         this.#warnedConfig = true;
-        this.out.warn(`otros usuarios de esta máquina pueden leer ${this.#config.path}. Corrígelo con: chmod 600 "${this.#config.path}"`);
+        this.out.warn(`other users of this machine can read ${this.#config.path}. Fix it with: chmod 600 "${this.#config.path}"`);
       }
     }
     return this.#config;
@@ -106,7 +106,7 @@ export class Context {
     if (raw === undefined || raw === '') return DEFAULT_RATE;
     const value = Number(raw);
     if (!Number.isFinite(value) || value <= 0 || value > MAX_RATE) {
-      throw usageError(`--rate tiene que ser un número mayor que 0 y hasta ${MAX_RATE} (pedidos por segundo): ${raw}`);
+      throw usageError(`--rate must be a number greater than 0 and up to ${MAX_RATE} (requests per second): ${raw}`);
     }
     return value;
   }
@@ -116,7 +116,7 @@ export class Context {
     const raw = this.globals.maxWait;
     if (raw === undefined) return 60;
     const value = Number(raw);
-    if (!Number.isInteger(value) || value < 0 || value > 3600) throw usageError(`--max-wait tiene que ser un entero de 0 a 3600 (segundos): ${raw}`);
+    if (!Number.isInteger(value) || value < 0 || value > 3600) throw usageError(`--max-wait must be an integer from 0 to 3600 (seconds): ${raw}`);
     return value;
   }
 }

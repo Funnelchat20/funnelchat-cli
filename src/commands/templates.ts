@@ -14,7 +14,7 @@ const STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'PENDING_DELETION', 'PAUSED
 
 export async function templatesList(ctx: Context, flags: TemplatesListFlags): Promise<void> {
   const status = flags.status?.toUpperCase();
-  if (status && !STATUSES.includes(status)) throw usageError(`--status tiene que ser uno de ${STATUSES.join(', ')}: ${flags.status}`);
+  if (status && !STATUSES.includes(status)) throw usageError(`--status must be one of ${STATUSES.join(', ')}: ${flags.status}`);
   const query = {
     perPage: 100,
     ...(flags.device ? { deviceId: positiveInt(flags.device, '--device') } : {}),
@@ -24,9 +24,9 @@ export async function templatesList(ctx: Context, flags: TemplatesListFlags): Pr
   for await (const template of ctx.client().all<Record<string, unknown>>(routes.templatesList, { query })) templates.push(template);
   ctx.out.result({ templates }, () =>
     templates.length === 0
-      ? 'No hay plantillas con esos filtros.'
+      ? 'No templates match those filters.'
       : table(
-          ['id', 'nombre', 'idioma', 'categoría', 'estado', 'número'],
+          ['id', 'name', 'language', 'category', 'status', 'number'],
           templates.map((t) => [t.id as number, t.name as string, t.language_code as string, t.category as string, t.status as string, t.device_id as number]),
         ),
   );

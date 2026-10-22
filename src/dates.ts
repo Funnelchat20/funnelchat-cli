@@ -31,7 +31,7 @@ export function parseSince(value: string, flag = '--since'): string {
     if (!Number.isNaN(date.getTime())) return toApiDateTime(date);
   }
   throw usageError(
-    `${flag} tiene que ser una fecha (AAAA-MM-DD, desde las 00:00 UTC) o una fecha y hora con zona (2026-10-01T09:00:00-03:00): ${value}`,
+    `${flag} must be a date (YYYY-MM-DD, from 00:00 UTC) or a date and time with a zone (2026-10-01T09:00:00-03:00): ${value}`,
   );
 }
 
@@ -42,7 +42,7 @@ export function parseContactBound(value: string, flag: string): string {
     const date = new Date(value.replace(' ', 'T'));
     if (!Number.isNaN(date.getTime())) return toApiDateTime(date);
   }
-  throw usageError(`${flag} tiene que ser una fecha AAAA-MM-DD o una fecha y hora con zona: ${value}`);
+  throw usageError(`${flag} must be a YYYY-MM-DD date or a date and time with a zone: ${value}`);
 }
 
 export function timestampForName(now: number): string {
