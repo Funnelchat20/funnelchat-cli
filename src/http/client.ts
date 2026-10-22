@@ -12,6 +12,11 @@
  * - **`5xx` and network errors back off exponentially** (1 s, 2 s, 4 s… up to 30 s, with jitter).
  * - **Every attempt goes through the pacer** (default 1 request per second).
  * - **The key is never logged**: `--verbose` shows method, URL, status and timing, never headers.
+ * - **`X-Request-Id`**: every answer of the API carries one, errors included (portal, autenticacion.md,
+ *   from developers-portal main @ c8ddcbe; api-edge v0.3.0 and platform-gate 0.8 send it). `--verbose`
+ *   shows it on each answer and every {@link ApiError} carries it, so an error can be cited to support.
+ * - **`500 edge_misconfigured` is not retried**: the API's entry is not configured to reach the domain, and
+ *   waiting does not change that. `502 origin_unreachable` is, like any `5xx` of a read.
  */
 import { ApiError, ConnectionError, ExitCode, InterruptedError, parseRetryAfter } from '../errors.js';
 import type { RouteInfo } from '../generated/routes.js';
@@ -138,7 +143,8 @@ export class ApiClient {
         throw error;
       }
 
-      opts.log?.(`← ${response.status} en ${opts.clock() - started} ms`);
+      const requestId = response.headers.get('x-request-id') ?? undefined;
+      opts.log?.(`← ${response.status} en ${opts.clock() - started} ms${requestId ? ` · X-Request-Id ${requestId}` : ''}`);
       const body = parseBody(response, text);
       if (response.ok) return body;
 
@@ -151,16 +157,17 @@ export class ApiClient {
         route: route.path,
         domain: route.domain,
         permission: route.permission,
+        requestId,
       });
 
-      const retryable = response.status === 429 || response.status >= 500;
+      const retryable = response.status === 429 || (response.status >= 500 && error.apiCode !== 'edge_misconfigured');
       if (!retryable) throw error;
 
       if (retryAfter !== undefined && retryAfter > maxWait) {
         throw stopForLongWait(error, retryAfter, opts.clock());
       }
       if (!canRetry) {
-        if (response.status === 429) error.hint ??= `Esperá ${formatSeconds(retryAfter ?? 60)} y volvé a intentar.`;
+        if (response.status === 429) error.hint = [`Esperá ${formatSeconds(retryAfter ?? 60)} y volvé a intentar.`, error.hint].filter(Boolean).join('\n');
         throw error;
       }
       const delay = retryAfter !== undefined ? Math.ceil(retryAfter * 1000) : backoffMs(attempt, random);
@@ -251,6 +258,7 @@ function stopForLongWait(error: ApiError, retryAfter: number, now: number): ApiE
     route: error.route,
     domain: error.domain,
     permission: null,
+    requestId: error.requestId,
     override: {
       message,
       exitCode: error.status === 429 ? ExitCode.RATE_LIMITED : ExitCode.API,

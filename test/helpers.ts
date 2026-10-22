@@ -24,7 +24,12 @@ export interface FakeRequest {
 export type FakeReply = { status?: number; body?: unknown; headers?: Record<string, string> } | Error;
 export type Hook = (request: FakeRequest, index: number) => FakeReply | undefined | void;
 
-/** A `fetch` that answers from `handler` and records every request. */
+/** The `X-Request-Id` the fake API sends with its `n`-th answer (a UUID, as the API's). */
+export function requestIdOf(n: number): string {
+  return `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+}
+
+/** A `fetch` that answers from `handler` and records every request, each answer with its `X-Request-Id`. */
 export function fakeFetch(handler: (request: FakeRequest) => FakeReply) {
   const calls: FakeRequest[] = [];
   const fetchFn = async (input: string | URL | Request, init: RequestInit = {}) => {
@@ -39,7 +44,7 @@ export function fakeFetch(handler: (request: FakeRequest) => FakeReply) {
     if (reply instanceof Error) throw reply;
     const status = reply.status ?? 200;
     const body = reply.body === undefined || status === 204 ? null : typeof reply.body === 'string' ? reply.body : JSON.stringify(reply.body);
-    return new Response(body, { status, headers: { 'content-type': 'application/json', ...reply.headers } });
+    return new Response(body, { status, headers: { 'content-type': 'application/json', 'x-request-id': requestIdOf(calls.length), ...reply.headers } });
   };
   return { fetch: fetchFn as unknown as typeof fetch, calls };
 }
@@ -118,7 +123,16 @@ export class FakeAccount {
     if (p === '/api/v1/devices') {
       return this.paged(
         [
-          { id: 3, alias: 'Oficial', number: '5491100000001', provider: 2, connected: 1, active: 1, health: { state: 'AVAILABLE', quality_level: 'GREEN' } },
+          {
+            id: 3,
+            alias: 'Oficial',
+            number: '5491100000001',
+            provider: 2,
+            connected: 1,
+            active: 1,
+            health: { state: 'AVAILABLE', quality_level: 'GREEN' },
+            capabilities: { messages: { text: true, templates: true }, groups: { send: false }, statuses: ['sent', 'delivered', 'read', 'failed'] },
+          },
           { id: 4, alias: 'QR', number: '5491100000002', provider: 1, connected: 1, active: 1, health: null },
         ],
         q,

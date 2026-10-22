@@ -70,6 +70,8 @@ export interface ApiErrorInit {
   route: string;
   domain: string | null;
   permission: string | null;
+  /** `X-Request-Id` of the response: the id support finds the call by. */
+  requestId?: string | undefined;
   /** Replaces the default description (used when the CLI decides to stop on a long wait). */
   override?: { message: string; exitCode: ExitCodeValue; details?: Record<string, unknown> };
 }
@@ -84,6 +86,8 @@ export class ApiError extends CliError {
   readonly fieldErrors: FieldErrors | undefined;
   readonly route: string;
   readonly domain: string | null;
+  /** `X-Request-Id` of the response, when it had one. */
+  readonly requestId: string | undefined;
 
   constructor(init: ApiErrorInit) {
     const record = isRecord(init.body) ? init.body : undefined;
@@ -92,7 +96,7 @@ export class ApiError extends CliError {
     const fieldErrors = isRecord(record?.errors) ? (record.errors as FieldErrors) : undefined;
     const described = describe(init, apiCode, apiMessage, fieldErrors);
     const { exitCode, message } = init.override ?? described;
-    const hint = init.override ? undefined : described.hint;
+    const hint = withRequestId(init.override ? undefined : described.hint, init.requestId);
     super(message, {
       exitCode,
       code: apiCode ?? `http_${init.status}`,
@@ -103,6 +107,7 @@ export class ApiError extends CliError {
         ...(apiCode ? { api_error: apiCode } : {}),
         ...(init.retryAfter !== undefined ? { retry_after: init.retryAfter } : {}),
         ...(fieldErrors ? { errors: fieldErrors } : {}),
+        ...(init.requestId ? { request_id: init.requestId } : {}),
         ...init.override?.details,
       },
     });
@@ -112,7 +117,15 @@ export class ApiError extends CliError {
     this.fieldErrors = fieldErrors;
     this.route = init.route;
     this.domain = init.domain;
+    this.requestId = init.requestId;
   }
+}
+
+/** The hint plus the line with the id to cite, when the response had one. */
+function withRequestId(hint: string | undefined, requestId: string | undefined): string | undefined {
+  if (!requestId) return hint;
+  const cite = `Id del pedido (X-Request-Id): ${requestId}. Citalo, con la hora aproximada, si lo reportás a soporte.`;
+  return hint ? `${hint}\n${cite}` : cite;
 }
 
 function describe(
@@ -139,6 +152,13 @@ function describe(
       hint: apiCode === 'route_not_available' ? 'Ninguna clave la habilita por ahora.' : `Creá una clave con el permiso que falta.${permission}`,
     };
   }
+  if (status === 404 && apiCode === 'route_not_found') {
+    return {
+      exitCode: ExitCode.NOT_FOUND,
+      message: `La ruta no existe en la API (404 route_not_found en ${where}).`,
+      hint: 'La CLI solo llama rutas de la referencia de la API: revisá que la URL base sea la de la API pública (https://api.funnelchat.com) y que tengas la última versión de la CLI.',
+    };
+  }
   if (status === 404) {
     return { exitCode: ExitCode.NOT_FOUND, message: `No existe en tu cuenta (404 en ${where})${said}` };
   }
@@ -149,6 +169,20 @@ function describe(
     const first = Object.entries(fieldErrors)[0];
     const detail = first ? ` ${first[0]}: ${first[1]?.[0] ?? ''}` : '';
     return { exitCode: ExitCode.API, message: `La API no aceptó la consulta (422 en ${where})${said}${detail ? `\n ${detail}` : ''}` };
+  }
+  if (status === 500 && apiCode === 'edge_misconfigured') {
+    return {
+      exitCode: ExitCode.API,
+      message: `La API no está disponible en este momento (500 edge_misconfigured en ${where}): la entrada de la API no está configurada para llegar a esta área.`,
+      hint: 'Es un problema del lado de Funnelchat: reportalo.',
+    };
+  }
+  if (status === 502 && apiCode === 'origin_unreachable') {
+    return {
+      exitCode: ExitCode.API,
+      message: `La API no está disponible en este momento (502 origin_unreachable en ${where}): la entrada de la API no pudo comunicarse con el área que atiende la ruta.`,
+      hint: 'Volvé a intentar en unos minutos; si sigue, reportalo.',
+    };
   }
   return { exitCode: ExitCode.API, message: `La API respondió ${status}${apiCode ? ` ${apiCode}` : ''} en ${where}${said}` };
 }
