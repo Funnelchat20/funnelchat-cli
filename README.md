@@ -401,6 +401,8 @@ npm run generate:check                                                       # i
 
 `spec/pending.json` is for a route that is not in the snapshot yet; today it is empty. When a new snapshot has a route from there, the generation says it can be deleted.
 
+**Publishing.** Push a `vX.Y.Z` tag on `main` that matches the version in `package.json`, and GitHub Actions publishes it to npm with provenance (`.github/workflows/publish.yml`).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
