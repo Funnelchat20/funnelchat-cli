@@ -110,19 +110,21 @@ describe.skipIf(!SANDBOX_DIR)('end to end against funnelchat-sandbox', () => {
     expect(new Set(messages.map((m) => m.id)).size).toBe(CONTACTS * MESSAGES_EACH);
   });
 
-  it('an API error carries the X-Request-Id the sandbox sent', async () => {
+  it('an API error carries the X-Request-Id the sandbox sent; 500 edge_misconfigured is not retried', async () => {
+    // The sandbox sends one on every answer since feat/inicial @ 7e244b8, like api-edge v0.3.0, and can
+    // force the edge's own errors for the next calls (POST /_sandbox/failures).
+    await post('/_sandbox/failures', { mode: 'edge', code: 'edge_misconfigured', count: 1 });
     const seen: string[] = [];
     const recording: typeof fetch = async (input, init) => {
       const response = await fetch(input, init);
       seen.push(response.headers.get('x-request-id') ?? '');
       return response;
     };
-    const result = await cli(['--json', 'whoami'], { fetch: recording, cwd: tempDir(), env: { ...env(), FUNNELCHAT_API_KEY: '1|fc_live_not_the_sandbox_key' } });
-    expect(result.code).toBe(3);
-    // The sandbox sends one on every answer since feat/inicial @ 7e244b8, like api-edge v0.3.0.
-    const id = seen.at(-1);
-    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
-    expect(JSON.parse(result.stderr).error.request_id).toBe(id);
+    const result = await cli(['--json', 'mac', 'status'], { fetch: recording, cwd: tempDir(), env: env() });
+    expect(result.code).toBe(6);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    expect(JSON.parse(result.stderr).error).toMatchObject({ code: 'edge_misconfigured', status: 500, request_id: seen[0] });
   });
 
   it("numbers list keeps the API's capabilities apart from the CLI's", async () => {
