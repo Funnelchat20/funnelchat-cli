@@ -25,8 +25,10 @@ describe('numbers', () => {
   it('lists what each number allows', async () => {
     const json = JSON.parse((await run(['--json', 'numbers', 'list'])).stdout);
     const [official, qr] = json.numbers;
-    expect(official).toMatchObject({ id: 3, connection: 'official', capabilities: ['contacts', 'conversations', 'templates', 'template_metrics', 'health'] });
-    expect(qr).toMatchObject({ id: 4, connection: 'qr', capabilities: ['contacts', 'conversations'] });
+    expect(official).toMatchObject({ id: 3, connection: 'official', cli_capabilities: ['contacts', 'conversations', 'templates', 'template_metrics', 'health'] });
+    expect(qr).toMatchObject({ id: 4, connection: 'qr', cli_capabilities: ['contacts', 'conversations'] });
+    // The API's own `capabilities` (accounts v1.4.24) goes through untouched.
+    expect(official.capabilities).toEqual({ messages: { text: true, templates: true }, groups: { send: false }, statuses: ['sent', 'delivered', 'read', 'failed'] });
     const human = await run(['numbers', 'list']);
     expect(human.stdout).toContain('métricas de plantillas');
   });
@@ -64,10 +66,15 @@ describe('templates', () => {
   });
 
   it('metrics: a route that is not deployed yet, a missing template, a bad range', async () => {
-    const notDeployed = new FakeAccount().hook((r) => (r.path.endsWith('/metrics') ? { status: 404, body: { error: 'route_not_found', message: 'No existe.' } } : undefined));
-    const missing = await run(['templates', 'metrics', '45'], notDeployed);
-    expect(missing.code).toBe(4);
-    expect(missing.stderr).toContain('#2350');
+    // Production today (conversations v1.18.10): the edge forwards templates/* and conversations answers its
+    // own 404, with `message` only. The edge's route_not_found is said the same way.
+    for (const body of [{ message: 'The route api/v1/templates/45/metrics could not be found.' }, { error: 'route_not_found', message: 'No existe.' }]) {
+      const notDeployed = new FakeAccount().hook((r) => (r.path.endsWith('/metrics') ? { status: 404, body } : undefined));
+      const missing = await run(['templates', 'metrics', '45'], notDeployed);
+      expect(missing.code).toBe(4);
+      expect(missing.stderr).toContain('#2350');
+      expect(missing.stderr).toContain('X-Request-Id');
+    }
     expect((await run(['templates', 'metrics', '999'])).code).toBe(4);
     const mixed = await run(['--json', 'templates', 'metrics', '45', '999']);
     expect(mixed.code).toBe(4);
@@ -91,6 +98,35 @@ describe('mac status', () => {
   it('shows the consumption against the limit', async () => {
     const result = await run(['mac', 'status']);
     expect(result.stdout).toContain('MACs del período: 120 de 1.000 (12 %) · quedan 880');
+  });
+
+  it('reads the shape of an account inside the MAC rollout too', async () => {
+    const enrolled = new FakeAccount().hook((r) =>
+      r.path === '/api/v1/mac/status'
+        ? {
+            body: {
+              mac_count: 950,
+              mac_limit: 1000,
+              cycle_capacity: 1200,
+              accumulated_available: 250,
+              total_available: 250,
+              usage_percentage: 79.17,
+              enforcement_enabled: true,
+              alert_level: null,
+              expiring_buckets: [],
+              buckets: [],
+              state: 'enforcing',
+              grace: null,
+              inactive_contacts_count: 12,
+            },
+          }
+        : undefined,
+    );
+    const result = await run(['mac', 'status'], enrolled);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('MACs del período: 950 de 1.200 (79,17 %) · quedan 250');
+    expect(result.stdout).toContain('estado enforcing');
+    expect(result.stdout).toContain('contactos inactivos por MAC: 12');
   });
 });
 

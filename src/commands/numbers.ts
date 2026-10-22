@@ -1,7 +1,10 @@
 /**
  * `numbers list` and `numbers health` (accounts: these calls count toward its daily cap per key).
  *
- * - `GET /api/v1/devices`: the numbers, with their provider and whether they are connected.
+ * - `GET /api/v1/devices`: the numbers, with their provider, whether they are connected and, since accounts
+ *   v1.4.24, `capabilities`: what the public API can do with each one (DeviceCapabilities::forDevice). The
+ *   CLI passes that object through untouched and adds `cli_capabilities`: what the CLI itself exports or
+ *   reads for the number.
  * - `GET /api/v1/devices/{device}/health`: health, quality, messaging limit and throughput of an
  *   official number, from the last snapshot Funnelchat stored (it never calls Meta). The spec types
  *   `health` as a string; its real shape comes from accounts origin/main @ 1d0e191ea,
@@ -27,7 +30,10 @@ const CAPABILITY_LABELS: Record<Capability, string> = {
   health: 'salud y límite',
 };
 
-/** What the CLI can export or read for a number. Derived by the CLI from `provider`; the API does not list it. */
+/**
+ * What the CLI can export or read for a number, derived from `provider`. Not the API's `capabilities` (what
+ * a number can send), which says nothing about reads.
+ */
 export function capabilitiesOf(device: Record<string, unknown>): Capability[] {
   const official = Number(device.provider) === OFFICIAL_PROVIDER;
   return ['contacts', 'conversations', ...(official ? (['templates', 'template_metrics', 'health'] as const) : [])];
@@ -45,16 +51,16 @@ async function listDevices(ctx: Context): Promise<Record<string, unknown>[]> {
 
 export async function numbersList(ctx: Context): Promise<void> {
   const devices = await listDevices(ctx);
-  const rows: (Record<string, unknown> & { connection: 'official' | 'qr'; capabilities: Capability[] })[] = devices.map((device) => ({
+  const rows: (Record<string, unknown> & { connection: 'official' | 'qr'; cli_capabilities: Capability[] })[] = devices.map((device) => ({
     ...device,
     connection: connectionOf(device),
-    capabilities: capabilitiesOf(device),
+    cli_capabilities: capabilitiesOf(device),
   }));
   ctx.out.result({ numbers: rows }, () =>
     rows.length === 0
       ? 'La cuenta no tiene números.'
       : table(
-          ['id', 'alias', 'número', 'conexión', 'conectado', 'salud', 'qué se puede'],
+          ['id', 'alias', 'número', 'conexión', 'conectado', 'salud', 'qué lee la CLI'],
           rows.map((d) => [
             d.id as number,
             d.alias as string,
@@ -62,7 +68,7 @@ export async function numbersList(ctx: Context): Promise<void> {
             d.connection === 'official' ? 'oficial' : 'QR',
             Number(d.connected) === 1 ? 'sí' : 'no',
             isRecord(d.health) ? String(d.health.state ?? '-') : null,
-            d.capabilities.map((c) => CAPABILITY_LABELS[c]).join(', '),
+            d.cli_capabilities.map((c) => CAPABILITY_LABELS[c]).join(', '),
           ]),
         ),
   );

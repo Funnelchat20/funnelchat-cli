@@ -4,8 +4,11 @@
  * DEPENDS ON AN UNMERGED PR: `GET /api/v1/templates/{template}/metrics` comes from conversations PR #2350
  * (branch feat/metricas-plantillas-api @ 0626c14ff, unmerged, stacked on feat/armar-funnelchat-f1). It is
  * in spec/pending.json, not in the portal's snapshot; the response shape was read from
- * TemplateMetricsResource and TemplateMetricsResult on that branch. Until it is deployed, the API
- * answers that the route does not exist.
+ * TemplateMetricsResource and TemplateMetricsResult on that branch. Checked again on 2026-10-22: the PR is
+ * still open at that commit, and production (conversations v1.18.10) has neither the route nor the entry in
+ * its platform-gate `allowed` list. The API's entry sends `templates/*` to conversations (api-edge v0.3.0,
+ * src/routes.ts), so until it is deployed the answer is conversations' own 404, with `message` and no
+ * `error`: the same shape as a template that does not exist.
  */
 import { ApiError, CliError, ExitCode, isRecord, usageError } from '../errors.js';
 import { routes } from '../generated/routes.js';
@@ -15,7 +18,7 @@ import { table, toCliError } from '../output.js';
 import { idList, positiveInt } from './common.js';
 
 export const TEMPLATE_METRICS_PENDING =
-  'templates metrics depende de un PR sin mergear (conversations #2350): hasta que se despliegue, la API puede responder que la ruta no existe.';
+  'templates metrics depende de un PR sin mergear (conversations #2350): hasta que se despliegue, la API responde 404, como si la plantilla no existiera.';
 
 export interface TemplatesListFlags {
   device?: string;
@@ -65,7 +68,7 @@ export async function templatesMetrics(ctx: Context, ids: string[], flags: Templ
       const data = isRecord(body) && isRecord(body.data) ? body.data : isRecord(body) ? body : {};
       results.push({ template_id: id, metrics: data });
     } catch (error) {
-      const failure = explain(error);
+      const failure = explain(error, id);
       // A stop that affects every template (key, limits, network) ends the command right away.
       if (failure.exitCode !== ExitCode.API && failure.exitCode !== ExitCode.NOT_FOUND) throw failure;
       firstFailure ??= failure;
@@ -80,17 +83,27 @@ export async function templatesMetrics(ctx: Context, ids: string[], flags: Templ
   if (firstFailure) {
     throw new CliError(
       results.length === 1 ? firstFailure.message : `${results.filter((r) => r.error).length} de ${results.length} plantillas no tienen métricas.`,
-      { exitCode: firstFailure.exitCode, code: firstFailure.code, ...(firstFailure.hint ? { hint: firstFailure.hint } : {}) },
+      {
+        exitCode: firstFailure.exitCode,
+        code: firstFailure.code,
+        ...(firstFailure.hint ? { hint: firstFailure.hint } : {}),
+        ...(results.length === 1 ? { details: firstFailure.details } : {}),
+      },
     );
   }
 }
 
-function explain(error: unknown): CliError {
-  if (error instanceof ApiError && error.status === 404 && error.apiCode === 'route_not_found') {
-    return new CliError('La API todavía no tiene la ruta de métricas de plantillas.', {
+function explain(error: unknown, id: number): CliError {
+  // Without the route deployed, a 404 cannot tell "no such template" from "no such route" (see above).
+  if (error instanceof ApiError && error.status === 404) {
+    return new CliError(`La plantilla ${id} no existe en tu cuenta, o la API todavía no tiene la ruta de métricas de plantillas.`, {
       exitCode: ExitCode.NOT_FOUND,
-      code: 'route_not_found',
-      hint: 'Depende de conversations PR #2350, sin mergear: va a funcionar cuando se despliegue.',
+      code: error.apiCode ?? 'http_404',
+      hint: [
+        'La ruta depende de conversations PR #2350, sin mergear: va a funcionar cuando se despliegue. Revisá también el id con `funnelchat templates list`.',
+        ...(error.requestId ? [`Id del pedido (X-Request-Id): ${error.requestId}.`] : []),
+      ].join('\n'),
+      details: error.details,
     });
   }
   return toCliError(error);
