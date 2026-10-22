@@ -15,7 +15,7 @@ export const ExitCode = {
   AUTH: 3,
   /** The resource does not exist in the account (`404`). */
   NOT_FOUND: 4,
-  /** A limit the CLI does not wait for: daily cap, hourly limit or a `Retry-After` too long. Resumable. */
+  /** A limit the CLI does not wait for: the daily cap or a `Retry-After` too long. Resumable. */
   RATE_LIMITED: 5,
   /** The API failed (`5xx`, `422`…) or could not be reached, after the retries. */
   API: 6,

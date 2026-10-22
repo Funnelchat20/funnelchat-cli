@@ -24,10 +24,9 @@ describe('generated route table', () => {
     expect(SPEC_SOURCE.commit).toBe(provenance.source.commit);
   });
 
-  it('marks only the template metrics route as pending, with its source', () => {
-    const pending = Object.values(routes).filter((r) => r.pending);
-    expect(pending.map((r) => r.path)).toEqual(['/api/v1/templates/{template}/metrics']);
-    expect(pending[0]?.pending?.source).toContain('PR #2350');
+  it('uses only routes that are in production: none comes from an unmerged branch', () => {
+    expect(Object.values(routes).filter((r) => r.pending)).toEqual([]);
+    expect(Object.values(routes).map((r) => r.path)).not.toContain('/api/v1/templates/{template}/metrics');
   });
 
   it('knows the domain, the permission and the pagination of each route', () => {

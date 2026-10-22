@@ -245,8 +245,6 @@ function stopForLongWait(error: ApiError, retryAfter: number, now: number): ApiE
   if (error.apiCode === 'daily_cap_exceeded') {
     const domain = error.domain ?? 'esta área';
     message = `Se alcanzó el tope diario de llamadas de ${domain} para esta clave. Se reinicia en ${when}.`;
-  } else if (error.apiCode === 'template_metrics_rate_limited') {
-    message = `Se agotaron las consultas de métricas a Meta de esta hora para tu cuenta. Se puede volver a consultar en ${when}.`;
   } else {
     message = `${error.message} La API pide esperar ${when}, más de lo que la CLI espera sola.`;
   }

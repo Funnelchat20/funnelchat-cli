@@ -191,25 +191,6 @@ export const routes = {
     ],
     "pending": null
   },
-  "templateMetrics": {
-    "id": "templateMetrics",
-    "method": "GET",
-    "path": "/api/v1/templates/{template}/metrics",
-    "summary": "Ver las métricas de una plantilla",
-    "domain": "conversations",
-    "permission": "conversations:read",
-    "pagination": "none",
-    "plainArray": false,
-    "perPageMax": null,
-    "query": [
-      "from",
-      "to"
-    ],
-    "pending": {
-      "key": "template-metrics",
-      "source": "conversations PR #2350 (https://github.com/Funnelchat20/conversations/pull/2350), sin mergear, rama feat/metricas-plantillas-api @ 0626c14ff54f1bd23559b6910e60df3f2c875bd8 (2026-10-16), apilado sobre feat/armar-funnelchat-f1. Archivos: back/routes/api/messages.php, back/app/Modules/Message/Http/Controllers/TemplateMetricsController.php, Http/Requests/TemplateMetricsRequest.php, Http/Resources/TemplateMetricsResource.php, Data/TemplateMetricsResult.php, Exceptions/TemplateMetricsRejectedException.php, back/config/platform-gate.php, back/lang/es/public_api.php."
-    }
-  },
   "macStatus": {
     "id": "macStatus",
     "method": "GET",

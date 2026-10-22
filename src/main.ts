@@ -12,7 +12,7 @@ import { CONTACTS_FLAG_NAMES, contactsExport, type ContactsExportFlags } from '.
 import { CONVERSATIONS_FLAG_NAMES, conversationsExport, type ConversationsExportFlags, DEFAULT_PART_SIZE } from './commands/conversations.js';
 import { macStatus } from './commands/mac.js';
 import { numbersHealth, numbersList } from './commands/numbers.js';
-import { templatesList, templatesMetrics, type TemplateMetricsFlags, type TemplatesListFlags } from './commands/templates.js';
+import { templatesList, type TemplatesListFlags } from './commands/templates.js';
 import { VERSION } from './version.js';
 
 const EXIT_CODES_HELP = `
@@ -22,7 +22,7 @@ Códigos de salida:
   2    uso incorrecto (opción o valor inválido)
   3    sin clave, clave rechazada (401) o sin permiso (403)
   4    no existe en tu cuenta (404)
-  5    límite de la API que la CLI no espera (tope diario, límite por hora): se puede retomar
+  5    límite de la API que la CLI no espera (tope diario o un Retry-After largo): se puede retomar
   6    error de la API o de red, después de los reintentos
   7    la salida ya existe: la CLI nunca pisa un archivo
   130  interrumpido con Ctrl+C: una exportación se puede retomar
@@ -43,7 +43,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
 
   const program = new Command('funnelchat');
   program
-    .description('Exportá conversaciones, contactos y métricas de tu cuenta de Funnelchat desde la API pública.')
+    .description('Exportá conversaciones y contactos de tu cuenta de Funnelchat desde la API pública, y consultá tus números, plantillas y MACs.')
     .version(VERSION, '-V, --version', 'Muestra la versión.')
     .helpOption('-h, --help', 'Muestra la ayuda.')
     .helpCommand('help [comando]', 'Muestra la ayuda de un comando.')
@@ -158,13 +158,6 @@ export async function run(argv: string[], io: Io): Promise<number> {
     .option('--device <id>', 'Solo las de este número.')
     .option('--status <estado>', 'APPROVED, PENDING, REJECTED, PAUSED, DISABLED…')
     .action(action((ctx, command) => templatesList(ctx, command.opts() as TemplatesListFlags)));
-  templates
-    .command('metrics')
-    .argument('<plantillas...>', 'Ids de las plantillas.')
-    .description('Enviados, entregados, leídos, clics y costo por día, según Meta. Depende de un PR sin mergear (conversations #2350).')
-    .option('--from <fecha>', 'Desde (AAAA-MM-DD, UTC). Va con --to. Por defecto, los últimos 7 días.')
-    .option('--to <fecha>', 'Hasta (AAAA-MM-DD, UTC, inclusive).')
-    .action(action((ctx, command, ids) => templatesMetrics(ctx, ids as string[], command.opts() as TemplateMetricsFlags)));
 
   // --- mac -------------------------------------------------------------------------------------
   const mac = program.command('mac').description('Contactos activos por mes (MACs).');

@@ -1,13 +1,13 @@
 # funnelchat-cli
 
-La CLI de Funnelchat para **exportar tus conversaciones, tus contactos y tus métricas** desde la API pública, con tu clave de integrador. Escribe archivos que se pueden verificar, nunca pisa uno que ya existe y, si se corta, sigue desde donde quedó.
+La CLI de Funnelchat para **exportar tus conversaciones y tus contactos** desde la API pública, y consultar tus números, tus plantillas y tus MACs, con tu clave de integrador. Escribe archivos que se pueden verificar, nunca pisa uno que ya existe y, si se corta, sigue desde donde quedó.
 
 ```bash
 funnelchat contacts export --output-dir ./mis-contactos
 funnelchat conversations export --since 2026-10-01 --output-dir ./octubre
 ```
 
-> **Estado: v0.** La API pública está en v0 y puede cambiar. Una parte de la CLI depende de un PR sin mergear: está en [Lo que depende de PRs sin mergear](#lo-que-depende-de-prs-sin-mergear). La referencia de la API está en el [portal de desarrolladores](https://developers-portal.funnelchat.app/docs/).
+> **Estado: v0.** La API pública está en v0 y puede cambiar. La CLI usa solo lo que la API tiene en producción; lo que se suma después está en [Lo que viene](#lo-que-viene). La referencia de la API está en el [portal de desarrolladores](https://developers-portal.funnelchat.app/docs/).
 
 ## Qué hace y qué no
 
@@ -132,11 +132,11 @@ funnelchat numbers list
 
 ```
 id  alias      número         conexión  conectado  salud      qué lee la CLI
-3   Ventas     5491100000001  oficial   sí         AVAILABLE  contactos, conversaciones, plantillas, métricas de plantillas, salud y límite
+3   Ventas     5491100000001  oficial   sí         AVAILABLE  contactos, conversaciones, plantillas, salud y límite
 4   Soporte    5491100000002  QR        sí         -          contactos, conversaciones
 ```
 
-«Qué lee la CLI» lo deduce la CLI del tipo de conexión (`provider`): los números oficiales (API de WhatsApp Cloud) tienen plantillas, métricas y salud; los de QR, no. Con `--json` sale como `cli_capabilities`. El campo `capabilities` de cada número es otra cosa: lo que la API puede hacer con él (tipos de mensaje, grupos, estados que informa), tal como lo devuelve `GET /api/v1/devices`, sin tocar.
+«Qué lee la CLI» lo deduce la CLI del tipo de conexión (`provider`): los números oficiales (API de WhatsApp Cloud) tienen plantillas y salud; los de QR, no. Con `--json` sale como `cli_capabilities`. El campo `capabilities` de cada número es otra cosa: lo que la API puede hacer con él (tipos de mensaje, grupos, estados que informa), tal como lo devuelve `GET /api/v1/devices`, sin tocar.
 
 ### `funnelchat numbers health`
 
@@ -242,28 +242,6 @@ id  nombre      idioma  categoría  estado    número
 45  bienvenida  es      UTILITY    APPROVED  3
 ```
 
-### `funnelchat templates metrics`
-
-Lo que Meta informa de una o más plantillas, por día (UTC) y en total: enviados, entregados, leídos, clics por botón y, cuando Meta lo informa, el costo. **Depende de un PR sin mergear** (conversations [#2350](https://github.com/Funnelchat20/conversations/pull/2350)): hasta que se despliegue, la API responde que la ruta no existe y la CLI te lo dice.
-
-```bash
-funnelchat templates metrics 45                                   # los últimos 7 días
-funnelchat templates metrics 45 46 --from 2026-09-01 --to 2026-09-30
-```
-
-```
-Plantilla 45 · 2026-09-01 a 2026-09-30 (UTC) · leído de Meta 2026-10-16T12:00:00Z
-  enviados 1.200 · entregados 1.180 · leídos 950 · clics 87 · costo 12.4
-  botón url_button "Ver oferta": 87 clics
-  día         enviados  entregados  leídos  clics  costo
-  2026-09-01  40        39          31      3      0.41
-  …
-```
-
-- Solo plantillas de números oficiales; hasta 90 días hacia atrás; `--from` y `--to` van juntas.
-- Las métricas tienen que estar activadas en el Administrador de WhatsApp de tu cuenta: Funnelchat no las activa por vos, porque Meta no deja desactivarlas después.
-- Meta admite hasta 60 consultas por hora por cuenta (las respuestas se guardan 15 minutos y no cuentan). Si se agotan, la CLI corta y te dice a qué hora podés volver a consultar.
-
 ### `funnelchat mac status`
 
 Cuántos contactos activos del mes (MACs) llevás en el período, el límite y cuántos te quedan. Si tu cuenta tiene el control de MAC por contacto, también cuántos contactos quedaron inactivos: a esos la API no les deja mandar mensajes con clave (`429 mac_lockout_24h`).
@@ -278,6 +256,8 @@ MACs del período: 120 de 1.000 (12 %) · quedan 880
 ```
 
 ## Las exportaciones
+
+> **Datos personales.** Lo que exportás tiene datos personales de tus contactos: nombres, teléfonos y mensajes. Guardalo en un lugar seguro, no lo compartas sin necesidad y borralo cuando ya no lo uses.
 
 ### Archivos que se pueden verificar
 
@@ -362,7 +342,7 @@ funnelchat contacts export --output-dir ./contactos --resume
 | `2` | Uso incorrecto: una opción o un valor inválido, o `--resume` con opciones distintas de las originales. |
 | `3` | Sin clave, una clave que la API rechaza (`401`) o sin el permiso que pide la ruta (`403`). |
 | `4` | No existe en tu cuenta (`404`), o la ruta no existe en la API (`404 route_not_found`). |
-| `5` | Un límite de la API que la CLI no espera sola: tope diario, límite por hora o un `Retry-After` largo. Se puede retomar. |
+| `5` | Un límite de la API que la CLI no espera sola: el tope diario o un `Retry-After` largo. Se puede retomar. |
 | `6` | La API falló (`5xx`, `422`…) o no se pudo conectar, después de los reintentos. |
 | `7` | La salida ya existe: la CLI nunca pisa un archivo. |
 | `130` | Interrumpido con Ctrl+C. Una exportación se puede retomar. |
@@ -377,13 +357,16 @@ La CLI usa solo rutas que existen en la especificación pública (`spec/routes-u
 - **Un filtro por número en los mensajes:** con `--device` filtra la CLI.
 - **Etiquetas y campos en el listado de contactos:** se piden contacto por contacto.
 - **Un filtro de contactos por fecha de modificación,** para una exportación incremental de contactos: solo hay fecha de alta.
-- **Métricas agregadas de mensajes** (enviados, entregados y leídos de la cuenta por día): solo están las de cada plantilla, y en un PR sin mergear.
+- **Métricas de mensajes** (enviados, entregados y leídos por día), ni de la cuenta ni por plantilla.
 - **Los datos de la propia clave** (su nombre y sus permisos): `whoami` muestra la cuenta, no la clave.
 
-## Lo que depende de PRs sin mergear
+## Lo que viene
 
-- **`templates metrics`** usa `GET /api/v1/templates/{template}/metrics`, de conversations [PR #2350](https://github.com/Funnelchat20/conversations/pull/2350) (rama `feat/metricas-plantillas-api` @ `0626c14ff`, apilado sobre `feat/armar-funnelchat-f1`; seguía abierto el 22-10). La forma de la respuesta se tomó de su código. Está en `spec/pending.json` y en `src/commands/templates.ts`, marcada como pendiente. Hasta que se despliegue, la API responde `404` como si la plantilla no existiera, y la CLI dice las dos cosas.
-- **La especificación** (`spec/funnelchat.json`) es la instantánea unificada del portal, de developers-portal [PR #11](https://github.com/Funnelchat20/developers-portal/pull/11) (rama `feat/openapi-unificada` @ `0ef4abb`, mergeado en `main` el 2026-10-21), armada con las instantáneas de los dominios del 13-10. El 22-10 se revisó cada comando contra el código en production (conversations `v1.18.10`, accounts `v1.4.24`, api-edge `v0.3.0`): las rutas y los parámetros que usa la CLI no cambiaron.
+- **`templates metrics`**: lo que Meta informa de cada plantilla por día (enviados, entregados, leídos, clics y costo). Vuelve a la CLI cuando la API tenga la ruta en producción (`GET /api/v1/templates/{template}/metrics`, hoy en un cambio de conversations sin desplegar). Se sacó el 22-10 para limitarse a lo que la API ya tiene.
+
+## De dónde sale la especificación
+
+`spec/funnelchat.json` es la instantánea unificada del portal (developers-portal, rama `feat/openapi-unificada` @ `0ef4abb`, mergeada en `main` el 2026-10-21), armada con las instantáneas de los dominios del 13-10. El 22-10 se revisó cada comando contra el código en producción (conversations `v1.18.10`, accounts `v1.4.24`, api-edge `v0.3.0`): las rutas y los parámetros que usa la CLI no cambiaron.
 
 ## Desarrollo
 
@@ -414,7 +397,7 @@ npm run generate                                                             # r
 npm run generate:check                                                       # ¿está al día?
 ```
 
-Si una instantánea nueva trae la ruta de métricas de plantillas, la generación avisa que se puede borrar de `spec/pending.json`.
+`spec/pending.json` es para una ruta que todavía no está en la instantánea; hoy está vacío. Cuando una instantánea nueva trae una ruta de ahí, la generación avisa que se puede borrar.
 
 ## Licencia
 

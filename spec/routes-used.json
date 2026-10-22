@@ -23,7 +23,6 @@
     },
     { "id": "contactMessages", "method": "GET", "path": "/api/v1/contacts/{contactId}/messages", "query": ["perPage", "updated_since"], "used_by": ["conversations export"] },
     { "id": "templatesList", "method": "GET", "path": "/api/v1/templates", "query": ["perPage", "deviceId", "status"], "used_by": ["templates list"] },
-    { "id": "templateMetrics", "method": "GET", "path": "/api/v1/templates/{template}/metrics", "query": ["from", "to"], "used_by": ["templates metrics"] },
     { "id": "macStatus", "method": "GET", "path": "/api/v1/mac/status", "query": [], "used_by": ["mac status"] }
   ]
 }

@@ -175,23 +175,6 @@ export class FakeAccount {
       return this.cursored(this.messagesOf(contact), q);
     }
     if (p === '/api/v1/templates') return this.paged([{ id: 45, name: 'bienvenida', language_code: 'es', category: 'UTILITY', status: 'APPROVED', device_id: 3 }], q);
-    if ((m = /^\/api\/v1\/templates\/(\d+)\/metrics$/.exec(p))) {
-      if (m[1] !== '45') return { status: 404, body: { message: 'No query results.' } };
-      return {
-        body: {
-          data: {
-            template_id: 45,
-            from: q.get('from') ?? '2026-10-10',
-            to: q.get('to') ?? '2026-10-16',
-            timezone: 'UTC',
-            granularity: 'day',
-            fetched_at: '2026-10-16T12:00:00Z',
-            totals: { sent: 10, delivered: 9, read: 7, clicks: [{ type: 'url_button', button_content: 'Ver', count: 2 }], cost: { amount_spent: 0.5 } },
-            days: [{ date: '2026-10-16', sent: 10, delivered: 9, read: 7, clicks: [], cost: null }],
-          },
-        },
-      };
-    }
     if (p === '/api/v1/mac/status') return { body: { enforcement_enabled: true, current_count: 120, limit: 1000, remaining: 880, usage_percentage: 12, state: 'normal', grace: null, period_start: null } };
     return { status: 404, body: { error: 'route_not_found', message: 'La ruta no existe.' } };
   }

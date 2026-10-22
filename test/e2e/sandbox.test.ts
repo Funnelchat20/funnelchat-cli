@@ -110,12 +110,6 @@ describe.skipIf(!SANDBOX_DIR)('end to end against funnelchat-sandbox', () => {
     expect(new Set(messages.map((m) => m.id)).size).toBe(CONTACTS * MESSAGES_EACH);
   });
 
-  it('templates metrics: the sandbox does not have the route of the unmerged PR yet', async () => {
-    const result = await cli(['templates', 'metrics', '45'], { fetch, cwd: tempDir(), env: env() });
-    expect(result.code).toBe(4);
-    expect(result.stderr).toContain('#2350');
-  });
-
   it('an API error carries the X-Request-Id the sandbox sent', async () => {
     const seen: string[] = [];
     const recording: typeof fetch = async (input, init) => {
@@ -123,8 +117,8 @@ describe.skipIf(!SANDBOX_DIR)('end to end against funnelchat-sandbox', () => {
       seen.push(response.headers.get('x-request-id') ?? '');
       return response;
     };
-    const result = await cli(['--json', 'templates', 'metrics', '45'], { fetch: recording, cwd: tempDir(), env: env() });
-    expect(result.code).toBe(4);
+    const result = await cli(['--json', 'whoami'], { fetch: recording, cwd: tempDir(), env: { ...env(), FUNNELCHAT_API_KEY: '1|fc_live_not_the_sandbox_key' } });
+    expect(result.code).toBe(3);
     // funnelchat-sandbox feat/inicial @ 7a1b3d8 (2026-10-22) does not send the header yet: then the CLI
     // must not make one up. Once it does, the CLI must carry exactly that one.
     const id = seen.at(-1);

@@ -6,7 +6,6 @@
  *   (conversations origin/main @ 3b0326e4f, ConversationController::index and ::getLatestMessages).
  * - `created_from` / `created_to` (contacts) take a day (`2026-10-01`, the whole day) or a date and time
  *   (ContactService::normalizeRangeBound).
- * - Template metrics take days (`AAAA-MM-DD`, UTC).
  */
 import { usageError } from './errors.js';
 
@@ -18,11 +17,6 @@ export function isValidDay(value: string): boolean {
   if (!match) return false;
   const date = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
-
-export function parseDay(value: string, flag: string): string {
-  if (!isValidDay(value)) throw usageError(`${flag} tiene que ser una fecha AAAA-MM-DD: ${value}`);
-  return value;
 }
 
 function toApiDateTime(date: Date): string {

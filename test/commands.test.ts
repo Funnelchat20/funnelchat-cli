@@ -25,12 +25,12 @@ describe('numbers', () => {
   it('lists what each number allows', async () => {
     const json = JSON.parse((await run(['--json', 'numbers', 'list'])).stdout);
     const [official, qr] = json.numbers;
-    expect(official).toMatchObject({ id: 3, connection: 'official', cli_capabilities: ['contacts', 'conversations', 'templates', 'template_metrics', 'health'] });
+    expect(official).toMatchObject({ id: 3, connection: 'official', cli_capabilities: ['contacts', 'conversations', 'templates', 'health'] });
     expect(qr).toMatchObject({ id: 4, connection: 'qr', cli_capabilities: ['contacts', 'conversations'] });
     // The API's own `capabilities` (accounts v1.4.24) goes through untouched.
     expect(official.capabilities).toEqual({ messages: { text: true, templates: true }, groups: { send: false }, statuses: ['sent', 'delivered', 'read', 'failed'] });
     const human = await run(['numbers', 'list']);
-    expect(human.stdout).toContain('métricas de plantillas');
+    expect(human.stdout).toContain('plantillas, salud y límite');
   });
 
   it('health reads only official numbers by default, and says when one is not official', async () => {
@@ -51,46 +51,6 @@ describe('templates', () => {
     expect(result.calls[0]?.query.get('deviceId')).toBe('3');
     expect(result.calls[0]?.query.get('status')).toBe('APPROVED');
     expect(result.stdout).toContain('bienvenida');
-  });
-
-  it('metrics: sends the range and prints totals and days, noting the unmerged PR', async () => {
-    const result = await run(['templates', 'metrics', '45', '--from', '2026-10-10', '--to', '2026-10-16']);
-    expect(result.code).toBe(0);
-    expect(result.calls[0]?.path).toBe('/api/v1/templates/45/metrics');
-    expect(result.calls[0]?.query.get('from')).toBe('2026-10-10');
-    expect(result.stdout).toContain('enviados 10 · entregados 9 · leídos 7 · clics 2 · costo 0.5');
-    expect(result.stderr).toContain('PR sin mergear');
-    const json = JSON.parse((await run(['--json', 'templates', 'metrics', '45'])).stdout);
-    expect(json.templates[0].metrics.totals.sent).toBe(10);
-    expect(json.pending).toContain('#2350');
-  });
-
-  it('metrics: a route that is not deployed yet, a missing template, a bad range', async () => {
-    // Production today (conversations v1.18.10): the edge forwards templates/* and conversations answers its
-    // own 404, with `message` only. The edge's route_not_found is said the same way.
-    for (const body of [{ message: 'The route api/v1/templates/45/metrics could not be found.' }, { error: 'route_not_found', message: 'No existe.' }]) {
-      const notDeployed = new FakeAccount().hook((r) => (r.path.endsWith('/metrics') ? { status: 404, body } : undefined));
-      const missing = await run(['templates', 'metrics', '45'], notDeployed);
-      expect(missing.code).toBe(4);
-      expect(missing.stderr).toContain('#2350');
-      expect(missing.stderr).toContain('X-Request-Id');
-    }
-    expect((await run(['templates', 'metrics', '999'])).code).toBe(4);
-    const mixed = await run(['--json', 'templates', 'metrics', '45', '999']);
-    expect(mixed.code).toBe(4);
-    expect(JSON.parse(mixed.stdout).templates[0].metrics).toBeTruthy();
-    expect((await run(['templates', 'metrics', '45', '--from', '2026-10-10'])).code).toBe(2);
-    expect((await run(['templates', 'metrics', '45', '--from', '2026-10-16', '--to', '2026-10-10'])).code).toBe(2);
-    expect((await run(['templates', 'metrics', '45', '--from', '2026-02-30', '--to', '2026-03-01'])).code).toBe(2);
-  });
-
-  it('a 429 of the hourly Meta limit stops with its own message', async () => {
-    const limited = new FakeAccount().hook((r) =>
-      r.path.endsWith('/metrics') ? { status: 429, headers: { 'Retry-After': '1800' }, body: { error: 'template_metrics_rate_limited' } } : undefined,
-    );
-    const result = await run(['templates', 'metrics', '45'], limited);
-    expect(result.code).toBe(5);
-    expect(result.stderr).toContain('consultas de métricas a Meta');
   });
 });
 

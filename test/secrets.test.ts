@@ -19,7 +19,6 @@ const COMMANDS: string[][] = [
   ['numbers', 'health'],
   ['numbers', 'health', '3', '4'],
   ['templates', 'list'],
-  ['templates', 'metrics', '45', '--from', '2026-10-01', '--to', '2026-10-16'],
   ['mac', 'status'],
   ['profiles'],
   ['contacts', 'export', '-o', 'csv'],

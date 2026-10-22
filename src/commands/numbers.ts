@@ -20,13 +20,12 @@ import { idList } from './common.js';
 /** `provider` of a number (WhatsAppProviderEnum in accounts): 2 is the official WhatsApp Cloud API, the rest connect by QR. */
 const OFFICIAL_PROVIDER = 2;
 
-export type Capability = 'contacts' | 'conversations' | 'templates' | 'template_metrics' | 'health';
+export type Capability = 'contacts' | 'conversations' | 'templates' | 'health';
 
 const CAPABILITY_LABELS: Record<Capability, string> = {
   contacts: 'contactos',
   conversations: 'conversaciones',
   templates: 'plantillas',
-  template_metrics: 'métricas de plantillas',
   health: 'salud y límite',
 };
 
@@ -36,7 +35,7 @@ const CAPABILITY_LABELS: Record<Capability, string> = {
  */
 export function capabilitiesOf(device: Record<string, unknown>): Capability[] {
   const official = Number(device.provider) === OFFICIAL_PROVIDER;
-  return ['contacts', 'conversations', ...(official ? (['templates', 'template_metrics', 'health'] as const) : [])];
+  return ['contacts', 'conversations', ...(official ? (['templates', 'health'] as const) : [])];
 }
 
 export function connectionOf(device: Record<string, unknown>): 'official' | 'qr' {
