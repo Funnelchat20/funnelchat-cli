@@ -3,7 +3,8 @@
 
 export interface RouteInfo {
   readonly id: string;
-  readonly method: 'GET';
+  /** A `POST` is a write: the client never retries it. */
+  readonly method: 'GET' | 'POST';
   readonly path: string;
   readonly summary: string | null;
   /** Domain that serves the route (`x-fc-domain`): accounts and communities have a daily call cap per key. */
@@ -15,17 +16,19 @@ export interface RouteInfo {
   readonly plainArray: boolean;
   readonly perPageMax: number | null;
   readonly query: readonly string[];
+  /** The fields of the JSON body the CLI sends (checked against the spec). */
+  readonly body: readonly string[];
   /** Set when the route comes from an unmerged branch (spec/pending.json), not from the snapshot. */
   readonly pending: { readonly key: string; readonly source: string | null } | null;
 }
 
 /** Where spec/funnelchat.json came from (spec/procedencia.json). */
 export const SPEC_SOURCE = {
-  "sha256": "8bbbae569b4cab520884db98f28204156c1bd6c629578bee609343c193e0dadb",
+  "sha256": "0ffaad2b25733d28b2cc07dde8152400c3c68974b3515e71e116ce599312b0fa",
   "repository": "git@github.com:Funnelchat20/developers-portal.git",
-  "branch": "feat/openapi-unificada",
-  "commit": "0ef4abb008870ed8c7cae49a08900a81e5e57ed8",
-  "paths": 191
+  "branch": "main",
+  "commit": "99928866cbac41d5b89d31d19773acfabdbbe5dd",
+  "paths": 218
 } as const;
 
 export const routes = {
@@ -40,6 +43,7 @@ export const routes = {
     "plainArray": false,
     "perPageMax": null,
     "query": [],
+    "body": [],
     "pending": null
   },
   "devicesList": {
@@ -55,6 +59,7 @@ export const routes = {
     "query": [
       "perPage"
     ],
+    "body": [],
     "pending": null
   },
   "deviceHealth": {
@@ -68,6 +73,7 @@ export const routes = {
     "plainArray": false,
     "perPageMax": null,
     "query": [],
+    "body": [],
     "pending": null
   },
   "contactsList": {
@@ -90,6 +96,7 @@ export const routes = {
       "created_to",
       "only_with_phone"
     ],
+    "body": [],
     "pending": null
   },
   "contactTags": {
@@ -105,6 +112,7 @@ export const routes = {
     "query": [
       "perPage"
     ],
+    "body": [],
     "pending": null
   },
   "contactCustomFields": {
@@ -120,6 +128,7 @@ export const routes = {
     "query": [
       "perPage"
     ],
+    "body": [],
     "pending": null
   },
   "customFieldsList": {
@@ -137,6 +146,7 @@ export const routes = {
       "orderBy",
       "orderByMethod"
     ],
+    "body": [],
     "pending": null
   },
   "conversationsList": {
@@ -156,6 +166,7 @@ export const routes = {
       "contactId",
       "updated_since"
     ],
+    "body": [],
     "pending": null
   },
   "contactMessages": {
@@ -172,6 +183,7 @@ export const routes = {
       "perPage",
       "updated_since"
     ],
+    "body": [],
     "pending": null
   },
   "templatesList": {
@@ -189,6 +201,7 @@ export const routes = {
       "deviceId",
       "status"
     ],
+    "body": [],
     "pending": null
   },
   "macStatus": {
@@ -202,6 +215,87 @@ export const routes = {
     "plainArray": false,
     "perPageMax": null,
     "query": [],
+    "body": [],
+    "pending": null
+  },
+  "connectLinkCreate": {
+    "id": "connectLinkCreate",
+    "method": "POST",
+    "path": "/api/v1/connect-links",
+    "summary": "Crear un link de alta",
+    "domain": "accounts",
+    "permission": "accounts:operate",
+    "pagination": "none",
+    "plainArray": false,
+    "perPageMax": null,
+    "query": [],
+    "body": [
+      "type"
+    ],
+    "pending": null
+  },
+  "sendMessage": {
+    "id": "sendMessage",
+    "method": "POST",
+    "path": "/api/v1/message/send-message",
+    "summary": "Enviar un mensaje",
+    "domain": "conversations",
+    "permission": "conversations:send",
+    "pagination": "none",
+    "plainArray": false,
+    "perPageMax": null,
+    "query": [],
+    "body": [
+      "device_id",
+      "phone",
+      "text"
+    ],
+    "pending": null
+  },
+  "messageShow": {
+    "id": "messageShow",
+    "method": "GET",
+    "path": "/api/v1/contacts/{contact}/messages/{message}",
+    "summary": "Ver un mensaje",
+    "domain": "conversations",
+    "permission": "conversations:read",
+    "pagination": "none",
+    "plainArray": false,
+    "perPageMax": null,
+    "query": [],
+    "body": [],
+    "pending": null
+  },
+  "deviceGroups": {
+    "id": "deviceGroups",
+    "method": "GET",
+    "path": "/api/v1/devices/{device}/groups",
+    "summary": "Listar los grupos que administra un número",
+    "domain": "communities",
+    "permission": "communities:read",
+    "pagination": "page",
+    "plainArray": false,
+    "perPageMax": null,
+    "query": [
+      "pageSize"
+    ],
+    "body": [],
+    "pending": null
+  },
+  "groupImport": {
+    "id": "groupImport",
+    "method": "POST",
+    "path": "/api/v1/groups/{group}/import",
+    "summary": "Importar un grupo de un número",
+    "domain": "communities",
+    "permission": "communities:operate",
+    "pagination": "none",
+    "plainArray": false,
+    "perPageMax": null,
+    "query": [],
+    "body": [
+      "device_id"
+    ],
     "pending": null
   }
 } as const satisfies Record<string, RouteInfo>;

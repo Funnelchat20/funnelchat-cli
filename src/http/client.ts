@@ -5,8 +5,10 @@
  * the same request shape, body parsing and per-attempt timeout. What changes for a CLI that pages
  * through whole accounts:
  *
- * - **Only reads are retried** (`GET`). The CLI sends nothing else today; anything else would never be
- *   retried automatically.
+ * - **Only reads are retried** (`GET`). A write (`POST`: a connect link, a message, following a group) is
+ *   sent once: on a `429` the CLI says how long to wait, and when the outcome is unknown (the network, a
+ *   timeout, a `5xx` other than `edge_misconfigured` and `gate_unavailable`) it says the write may have
+ *   arrived, so nobody repeats it blindly.
  * - **`429` and `503` honour `Retry-After`**: the CLI waits exactly that, up to `maxWaitSeconds`. A longer
  *   wait (a daily cap can ask for hours) stops the command with exit code 5 and the time it resets.
  * - **`5xx` and network errors back off exponentially** (1 s, 2 s, 4 s… up to 30 s, with jitter).
@@ -55,7 +57,12 @@ export interface ClientOptions {
 export interface RequestOptions {
   path?: Record<string, string | number>;
   query?: Record<string, unknown>;
+  /** The JSON body of a write. */
+  body?: unknown;
 }
+
+/** Added to the error of a write whose outcome is unknown. */
+export const WRITE_MAY_HAVE_ARRIVED = 'It was a write: Funnelchat may have received it. Check before repeating it.';
 
 export interface FetchedPage<T> {
   items: T[];
@@ -85,6 +92,12 @@ export class ApiClient {
 
   /** One `GET` of `route`, with retries. Returns the parsed body. */
   async get<T = unknown>(route: RouteInfo, options: RequestOptions = {}): Promise<T> {
+    return (await this.#send(route, options)) as T;
+  }
+
+  /** One write (`POST`) of `route` with a JSON `body`, sent once and never retried. Returns the parsed body. */
+  async post<T = unknown>(route: RouteInfo, options: RequestOptions = {}): Promise<T> {
+    if (route.method !== 'POST') throw new TypeError(`${route.method} ${route.path} is not a write.`);
     return (await this.#send(route, options)) as T;
   }
 
@@ -120,6 +133,8 @@ export class ApiClient {
       'User-Agent': `${USER_AGENT_PRODUCT}/${VERSION} node/${process.version}`,
       Authorization: `Bearer ${this.#apiKey}`,
     };
+    const payload = options.body === undefined ? undefined : JSON.stringify(options.body);
+    if (payload !== undefined) headers['Content-Type'] = 'application/json';
 
     for (let attempt = 0; ; attempt++) {
       const canRetry = retriesAllowed && attempt < maxRetries;
@@ -131,7 +146,7 @@ export class ApiClient {
       let response: Response;
       let text: string;
       try {
-        ({ response, text } = await this.#attempt(method, url, headers));
+        ({ response, text } = await this.#attempt(method, url, headers, payload));
       } catch (error) {
         if (error instanceof InterruptedError) throw error;
         if (canRetry) {
@@ -140,6 +155,7 @@ export class ApiClient {
           await this.#sleep(delay);
           continue;
         }
+        if (!retriesAllowed && error instanceof ConnectionError) error.hint = [error.hint, WRITE_MAY_HAVE_ARRIVED].filter(Boolean).join('\n');
         throw error;
       }
 
@@ -161,10 +177,13 @@ export class ApiClient {
       });
 
       const retryable = response.status === 429 || (response.status >= 500 && error.apiCode !== 'edge_misconfigured');
+      if (!retriesAllowed && response.status >= 500 && error.apiCode !== 'edge_misconfigured' && error.apiCode !== 'gate_unavailable') {
+        error.hint = [WRITE_MAY_HAVE_ARRIVED, error.hint].filter(Boolean).join('\n');
+      }
       if (!retryable) throw error;
 
       if (retryAfter !== undefined && retryAfter > maxWait) {
-        throw stopForLongWait(error, retryAfter, opts.clock());
+        throw stopForLongWait(error, retryAfter, opts.clock(), method);
       }
       if (!canRetry) {
         if (response.status === 429) error.hint = [`Wait ${formatSeconds(retryAfter ?? 60)} and try again.`, error.hint].filter(Boolean).join('\n');
@@ -185,7 +204,7 @@ export class ApiClient {
     }
   }
 
-  async #attempt(method: string, url: string, headers: Record<string, string>): Promise<{ response: Response; text: string }> {
+  async #attempt(method: string, url: string, headers: Record<string, string>, payload: string | undefined): Promise<{ response: Response; text: string }> {
     const signal = this.#options.signal;
     if (signal?.aborted) throw new InterruptedError();
     const timeoutMs = this.#options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -207,7 +226,7 @@ export class ApiClient {
     try {
       let response: Response;
       try {
-        response = await this.#options.fetch(url, { method, headers, signal: controller.signal });
+        response = await this.#options.fetch(url, { method, headers, signal: controller.signal, ...(payload !== undefined ? { body: payload } : {}) });
       } catch (error) {
         throw classify(error);
       }
@@ -238,7 +257,7 @@ export function backoffMs(attempt: number, random: () => number = Math.random): 
 }
 
 /** A `429`/`503` whose `Retry-After` is longer than the CLI waits for: stop, and say when it resets. */
-function stopForLongWait(error: ApiError, retryAfter: number, now: number): ApiError {
+function stopForLongWait(error: ApiError, retryAfter: number, now: number, method: string): ApiError {
   const at = new Date(now + retryAfter * 1000);
   const when = `${formatSeconds(retryAfter)} (at ${at.toISOString().slice(11, 16)} UTC on ${at.toISOString().slice(0, 10)})`;
   let message: string;
@@ -252,7 +271,7 @@ function stopForLongWait(error: ApiError, retryAfter: number, now: number): ApiE
     status: error.status,
     body: error.apiCode ? { error: error.apiCode } : null,
     retryAfter,
-    method: 'GET',
+    method,
     route: error.route,
     domain: error.domain,
     permission: null,

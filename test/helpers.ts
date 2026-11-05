@@ -19,6 +19,8 @@ export interface FakeRequest {
   path: string;
   query: URLSearchParams;
   headers: Record<string, string>;
+  /** The JSON body of a write, parsed; `undefined` for a read. */
+  body: unknown;
 }
 
 export type FakeReply = { status?: number; body?: unknown; headers?: Record<string, string> } | Error;
@@ -38,13 +40,14 @@ export function fakeFetch(handler: (request: FakeRequest) => FakeReply) {
     new Headers(init.headers).forEach((value, key) => {
       headers[key] = value;
     });
-    const request: FakeRequest = { method: init.method ?? 'GET', url, path: url.pathname, query: url.searchParams, headers };
+    const body: unknown = typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
+    const request: FakeRequest = { method: init.method ?? 'GET', url, path: url.pathname, query: url.searchParams, headers, body };
     calls.push(request);
     const reply = handler(request);
     if (reply instanceof Error) throw reply;
     const status = reply.status ?? 200;
-    const body = reply.body === undefined || status === 204 ? null : typeof reply.body === 'string' ? reply.body : JSON.stringify(reply.body);
-    return new Response(body, { status, headers: { 'content-type': 'application/json', 'x-request-id': requestIdOf(calls.length), ...reply.headers } });
+    const text = reply.body === undefined || status === 204 ? null : typeof reply.body === 'string' ? reply.body : JSON.stringify(reply.body);
+    return new Response(text, { status, headers: { 'content-type': 'application/json', 'x-request-id': requestIdOf(calls.length), ...reply.headers } });
   };
   return { fetch: fetchFn as unknown as typeof fetch, calls };
 }

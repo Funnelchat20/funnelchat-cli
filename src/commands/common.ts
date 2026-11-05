@@ -1,5 +1,23 @@
 import type { Command } from 'commander';
-import { usageError } from '../errors.js';
+import type { Context } from '../context.js';
+import { InterruptedError, usageError } from '../errors.js';
+
+/** `--timeout`: whole seconds, from 0 up to a day. */
+export function seconds(value: string, flag: string): number {
+  if (!/^\d+$/.test(value) || Number(value) > 86_400) throw usageError(`${flag} must be a whole number of seconds, from 0 to 86400: ${value}`);
+  return Number(value);
+}
+
+/** Waits `ms` between two polls; Ctrl+C ends the wait with an {@link InterruptedError}. */
+export async function pause(ctx: Context, ms: number): Promise<void> {
+  if (ctx.io.signal?.aborted) throw new InterruptedError();
+  try {
+    await ctx.io.sleep(Math.max(0, ms), ctx.io.signal);
+  } catch (error) {
+    if (ctx.io.signal?.aborted) throw new InterruptedError();
+    throw error;
+  }
+}
 
 export function positiveInt(value: string, flag: string): number {
   if (!/^\d+$/.test(value) || Number(value) < 1 || !Number.isSafeInteger(Number(value))) {

@@ -1,8 +1,32 @@
 # @funnelchat-hq/cli
 
-The Funnelchat CLI to **export your conversations and your contacts** through the public API, and check your numbers, your templates and your MACs, with your integrator key. It writes files you can verify, never overwrites one that already exists and, if it gets interrupted, picks up where it left off.
+The Funnelchat CLI. **Connect a WhatsApp number, send a message and watch it get read**, in three commands, without writing code or a webhook:
 
 ```bash
+npm install --global @funnelchat-hq/cli
+
+funnelchat login                                        # 1. paste your API key; it is not shown
+funnelchat connect                                      # 2. open the link it prints and scan the QR with WhatsApp
+funnelchat send 5491122334455 "Hello from Funnelchat"   # 3. and watch it: queued → sent → delivered → read
+```
+
+```
+Sending to 5491122334455 from Support (5491100000002)…
+  queued
+  sent       after 1 s
+  delivered  after 2 s
+  read       after 14 s
+Message 98765 to 5491122334455: read 14 s after sending.
+```
+
+The phone does not need to be a contact yet: the send creates it. Send it to your own phone to see it arrive.
+
+**Handing it to an AI agent?** Agents are good at running commands. Two things help them: `funnelchat connect --no-wait` prints the link and ends at once (the agent shows it to you, and `funnelchat numbers list` says when the number is connected), and `--json` on any command gives one JSON document to read.
+
+The same key also **follows your WhatsApp groups** (`funnelchat groups`), **exports your conversations and your contacts** to files you can verify, and checks your numbers, templates and MACs:
+
+```bash
+funnelchat groups                                       # the groups of your number, as WhatsApp has them
 funnelchat contacts export --output-dir ./my-contacts
 funnelchat conversations export --since 2026-10-01 --output-dir ./october
 ```
@@ -11,7 +35,8 @@ funnelchat conversations export --since 2026-10-01 --output-dir ./october
 
 ## What it does and what it does not
 
-- **It only reads.** It sends no messages and creates or changes nothing in your account: every call it makes is a `GET`.
+- **It writes only when you ask it to.** `connect` creates a connect link, `send` sends a message (and creates the contact if the phone is new) and `groups follow` imports a group into your account. Every other command only reads: each call it makes is a `GET`.
+- **A write is sent once.** The CLI never repeats it on its own; if the network fails halfway, it says the write may have arrived, so you can check before repeating it.
 - **It exports by paging through the public API**, because the API has no server-side export. A large account takes a while: the CLI goes at a low pace on purpose, so it does not slow down your panel.
 - **It never stores or shows your key** anywhere except your configuration file, if you use `funnelchat login`.
 
@@ -26,7 +51,7 @@ funnelchat --version
 
 Or without installing it: `npx @funnelchat-hq/cli --version`.
 
-### A minimal example
+### An export example
 
 ```bash
 funnelchat login                                   # paste your key; it is not shown
@@ -54,8 +79,14 @@ The CLI uses an API key of your account: `<id>|fc_live_...`, complete, as the **
 
 | Command | Permission |
 |---|---|
+| `connect` | `accounts:operate` (WhatsApp numbers → Create, connect and delete) and `accounts:read` to wait for the number |
+| `send` | `conversations:send`; to a phone that is not a contact yet, `conversations:write` (it creates the contact); `conversations:read` to watch the status; `accounts:read` to pick the number without `--device` |
+| `groups` | `communities:read`; `accounts:read` without `--device` |
+| `groups follow` | `communities:operate` (Groups and campaigns → Manage groups); `accounts:read` without `--device` |
 | `contacts export`, `conversations export`, `templates`, `mac status` | `conversations:read` |
 | `whoami`, `numbers` | `accounts:read` |
+
+For the first use, a key with **WhatsApp numbers** (view and connect) and **Contacts and conversations** (view, edit and send) is enough.
 
 There are two ways to give it the key:
 
@@ -104,6 +135,94 @@ FUNNELCHAT_API_KEY='1|fc_live_sandbox' funnelchat --base-url http://127.0.0.1:40
 ## Commands
 
 Every command takes `--json` for use from scripts and `--help` to see all its options.
+
+### `funnelchat connect`
+
+Connects a WhatsApp number to your account by QR code. It creates a connect link (`POST /api/v1/connect-links` with `type: "qr"`), prints it, and waits until the number is connected.
+
+```bash
+funnelchat connect
+```
+
+```
+Open this link, tap the button and scan the QR code with WhatsApp on the phone you are connecting (Linked devices → Link a device):
+
+  https://…
+
+It works once and expires at 2026-11-05T21:00:00+00:00; after tapping the button there are 10 minutes to scan the QR.
+Whoever has the link can connect a number to your account: do not share it.
+
+Waiting for the number to connect… (Ctrl+C to stop)
+Connected: Support (5491100000002), id 4.
+Send a first message: funnelchat send <phone> "Hello from Funnelchat"
+```
+
+| Option | What it does |
+|---|---|
+| `--no-wait` | Prints the link and ends, without waiting. For scripts and agents: `funnelchat numbers list` then shows when the number is connected. |
+| `--timeout <seconds>` | How long to wait for the number. By default, 900 (15 minutes). |
+
+- **The link** is a page on Funnelchat's domain. Opening it does not use it; tapping its button creates the number and shows the QR, which renews itself every 5 seconds. Treat it as a secret: it comes only in this answer, and whoever has it can connect a number to your account.
+- **How it knows:** it lists your numbers before creating the link and then every 5 seconds (`GET /api/v1/devices`), and stops at the first one that was not connected before. Each listing counts toward the daily cap of accounts (about 180 calls in 15 minutes, of 10,000 a day).
+- **With `--json`**, the link goes to stderr as soon as it exists, and stdout gets one document at the end, with the link and the number.
+- **No QR in the terminal:** the page shows the QR that WhatsApp scans.
+- If nobody scans the QR within 10 minutes of tapping the button, the link fails and the number it created is deleted: run `funnelchat connect` again. If the CLI stops waiting before (`--timeout`, exit code `8`, or Ctrl+C), the link still works until it expires.
+
+### `funnelchat send <phone> <text>`
+
+Sends a text message to a phone and shows its status live, until it is `read`, it `failed` or `--timeout` ends.
+
+```bash
+funnelchat send 5491122334455 "Hello from Funnelchat"
+funnelchat send +54 9 11 2233-4455 "Hello" --device 4 --timeout 300
+```
+
+| Option | What it does |
+|---|---|
+| `--device <id>` | The number it sends from. By default, the only connected number of your account; with several, the CLI asks for this. |
+| `--timeout <seconds>` | How long to watch the status. By default, 90. `0` sends and does not watch. |
+
+- **The phone**, with its country code. Spaces, dashes, dots, parentheses and a leading `+` are dropped. It does not need to be a contact yet: the send creates it (`POST /api/v1/message/send-message`, with `device_id`, `phone` and `text`).
+- **The status:** `queued` (in line, not sent yet), `sent`, `delivered` and `read`, or `failed` with the reason. The CLI reads it with `GET /api/v1/contacts/{contact}/messages/{message}`, 1 second after each change and then less and less often (2 s, 4 s… up to 10 s). If the recipient turned read receipts off, it stays `delivered`.
+- **Exit codes:** `0` when it is read, or still on its way when `--timeout` ends; `6` when it failed (`code` `message_failed`, with the reason in `--json`). Ctrl+C stops watching (`130`); the message was already sent.
+- **On an official number** (WhatsApp Cloud API), free text only goes out within 24 hours of the contact's last message, so the first message to a new contact has to be a template: the API answers `422 window_closed` and nothing is sent. A number connected by QR has no such window.
+- **Rejections say what happened in plain words,** and that nothing was sent when the API guarantees it: `window_closed`, `recipient_mismatch`, `antiblock_*`, `device_unavailable`, `403` (the permission missing) and `429` (how long to wait). A send is never repeated on its own.
+- **With `--json`**, one document with the message, every status with the seconds it took, and `outcome`: `read`, `timeout`, `unknown` (the provider never confirmed it: it will not change) or `not_watched`.
+
+### `funnelchat groups`
+
+The WhatsApp groups of a number connected by QR, as WhatsApp has them, and which ones you follow.
+
+```bash
+funnelchat groups
+funnelchat groups --device 4
+```
+
+```
+uid                         name           followed
+120363000000000001@g.us     Launch Nov     yes
+120363000000000002@g.us     Clients VIP    no
+```
+
+- **Live:** `GET /api/v1/devices/{device}/groups` reads them from WhatsApp, and reuses the list for up to a minute per number: a group just created can take that long to show.
+- **The number:** `--device`, or the only number of your account connected by QR.
+
+### `funnelchat groups follow <group>`
+
+Follows a group: imports it to your account, as importing it from the panel does. From then on, who joins and who leaves arrives as the `group_participant.joined` and `group_participant.left` webhook events.
+
+```bash
+funnelchat groups follow 120363000000000002@g.us
+```
+
+```
+Following "Clients VIP" (120363000000000002@g.us).
+Who joins and who leaves arrives as the group_participant.joined and group_participant.left webhook events.
+```
+
+- `<group>` is the `uid` that `funnelchat groups` shows. A group already followed says so, and nothing changes.
+- **Only numbers connected by QR** (`422 provider_unsupported` otherwise), and up to 5 groups per number per minute (`429 import_rate_limited`). If the number is not an admin of the group, the CLI warns you: it can follow it, but not send messages to it or manage it.
+- `POST /api/v1/groups/{group}/import` with `device_id`; it needs `communities:operate` (Groups and campaigns → Manage groups).
 
 ### `funnelchat whoami`
 
@@ -269,8 +388,8 @@ MACs in the period: 120 of 1,000 (12 %) · 880 left
 {
   "manifest_version": 1,
   "kind": "conversations",
-  "generator": { "name": "@funnelchat-hq/cli", "version": "0.1.1" },
-  "api": { "base_url": "https://api.funnelchat.com", "spec": { "commit": "0ef4abb…", "sha256": "8bbbae5…" }, "routes": [ … ] },
+  "generator": { "name": "@funnelchat-hq/cli", "version": "0.2.0" },
+  "api": { "base_url": "https://api.funnelchat.com", "spec": { "commit": "99928866…", "sha256": "0ffaad2…" }, "routes": [ … ] },
   "started_at": "2026-10-16T12:00:00.000Z",
   "finished_at": "2026-10-16T12:41:10.000Z",
   "runs": 2,
@@ -318,8 +437,9 @@ funnelchat contacts export --output-dir ./contacts --resume
 
 - **Low pace:** at most 1 call per second, retries included. Change it with `--rate` (greater than 0 and up to 10; `0.5` is one every two seconds) or `FUNNELCHAT_RATE`. The API's per-minute limits are counted per user and your panel shares them: raise it carefully.
 - **`429` and `503`:** the CLI waits exactly what `Retry-After` says and retries. If it asks for more than 60 seconds (`--max-wait` changes that), it stops with code `5` and tells you when it resets.
-- **Server and network errors:** it retries with exponential backoff (1 s, 2 s, 4 s… up to 30 s), up to 4 times; also a `502 origin_unreachable` from the API's entry point. **It only retries reads**; the CLI does nothing else. A `500 edge_misconfigured` is not retried: it is a configuration problem on our side and waiting does not fix it.
-- **The daily cap:** accounts and communities allow up to 10,000 calls per day per key, each on its own; conversations has no daily cap. The contacts and conversations exports use only conversations; `whoami` and `numbers` use accounts. If the cap is reached, the CLI stops with a clear message and the reset time, and the export can be resumed.
+- **Server and network errors:** it retries with exponential backoff (1 s, 2 s, 4 s… up to 30 s), up to 4 times; also a `502 origin_unreachable` from the API's entry point. **It only retries reads**: a write (`connect`, `send`, `groups follow`) is sent once, and a `429` on it says how long to wait. A `500 edge_misconfigured` is not retried: it is a configuration problem on our side and waiting does not fix it.
+- **Waiting without hurry:** `connect` lists your numbers every 5 seconds; `send` reads the message 1 second after each change and then less and less often, up to every 10 seconds.
+- **The daily cap:** accounts and communities allow up to 10,000 calls per day per key, each on its own; conversations has no daily cap. The contacts and conversations exports and the message of `send` use only conversations; `whoami`, `numbers`, `connect` and picking the number without `--device` use accounts; `groups` uses communities. If the cap is reached, the CLI stops with a clear message and the reset time, and the export can be resumed.
 
 ## For scripts
 
@@ -345,8 +465,9 @@ The CLI asks the API for its messages in Spanish (`Accept-Language: es`), so the
 | `3` | No key, a key the API rejects (`401`) or a key without the permission the route needs (`403`). |
 | `4` | Not found in your account (`404`), or the route does not exist in the API (`404 route_not_found`). |
 | `5` | An API limit the CLI does not wait for on its own: the daily cap or a long `Retry-After`. It can be resumed. |
-| `6` | The API failed (`5xx`, `422`…) or could not be reached, after the retries. |
+| `6` | The API failed (`5xx`, `422`…) or could not be reached, after the retries; or the message `send` watched failed. |
 | `7` | The output already exists: the CLI never overwrites a file. |
+| `8` | `connect` waited `--timeout` and no number connected. |
 | `130` | Interrupted with Ctrl+C. An export can be resumed. |
 
 ## What the API does not allow yet
@@ -368,7 +489,7 @@ The CLI uses only routes that exist in the public spec (`spec/routes-used.json` 
 
 ## Where the spec comes from
 
-`spec/funnelchat.json` is the portal's unified snapshot (developers-portal, branch `feat/openapi-unificada` @ `0ef4abb`, merged into `main` on 2026-10-21), built from the domains' snapshots of 2026-10-13. On 2026-10-22 every command was checked against the code in production (conversations `v1.18.10`, accounts `v1.4.24`, api-edge `v0.3.0`): the routes and parameters the CLI uses did not change.
+`spec/funnelchat.json` is the portal's full unified spec (developers-portal `main` @ `99928866`, deployed as v0.6.3 on 2026-11-05: `generated/specs/funnelchat-completa.json`, which carries every operation, not only the ones the portal shows), built from the snapshots of accounts `v1.5.97` (`558332bcf`), conversations `v1.19.21` (`f2937a713`) and communities `54643bbd` (the app code of `v2.35.7`). `spec/procedencia.json` says so, with the file's `sha256`. Every route, parameter and body field the CLI uses is in it: `spec/pending.json` stays empty.
 
 ## Development
 
@@ -381,7 +502,7 @@ npm run build
 
 To develop you need Node 20 or later (for the test tools); the CLI it builds runs on Node 18.
 
-**The tests** use simulated answers, with the same shapes as the API (pages by number and by cursor). They cover paging, resuming, `429`s, that the key never shows up in any output or any file, that no file is overwritten, and the manifest's SHA-256.
+**The tests** use simulated answers, with the same shapes as the API (pages by number and by cursor). They cover paging, resuming, `429`s, that the key never shows up in any output or any file, that no file is overwritten, the manifest's SHA-256, and the first use: `connect` waiting for the number, and `send` watching the status until it is read.
 
 **End to end against the sandbox.** With an already built checkout of [funnelchat-sandbox](https://github.com/Funnelchat20/funnelchat-sandbox) (`npm install && npm run build` in its folder), this test starts it in the same process, on a free port, and runs the CLI against it. It does not touch the sandbox's repository:
 
@@ -391,13 +512,15 @@ FUNNELCHAT_SANDBOX_DIR=../funnelchat-sandbox npm run test:e2e
 
 Without that variable, `npm test` skips it.
 
-**The spec.** It is copied and regenerated with a single script, which records where it came from in `spec/procedencia.json` and checks that every route and every parameter the CLI uses exists:
+**The spec.** It is copied and regenerated with a single script, which records where it came from in `spec/procedencia.json` and checks that every route, every parameter and every body field the CLI uses exists:
 
 ```bash
-npm run generate -- --spec ../developers-portal/out/specs/funnelchat.json   # a new snapshot
-npm run generate                                                             # regenerate
-npm run generate:check                                                       # is it up to date?
+npm run generate -- --spec ../developers-portal/generated/specs/funnelchat-completa.json   # a new spec
+npm run generate                                                                           # regenerate
+npm run generate:check                                                                     # is it up to date?
 ```
+
+The portal's full spec is a build output git ignores, so a copy of it says where it came from on the command line, as funnelchat-node does: `--expect-sha256 <hex>`, `--source repository=… --source branch=… --source commit=… --source path=…` and `--domain <area>=<sha>@<branch>@<snapshot_at>` for each area. `spec/procedencia.json` marks those fields as declared.
 
 `spec/pending.json` is for a route that is not in the snapshot yet; today it is empty. When a new snapshot has a route from there, the generation says it can be deleted.
 

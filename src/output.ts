@@ -37,6 +37,14 @@ export class Output {
     else this.#lines(this.stdout, human());
   }
 
+  /**
+   * What the person has to act on now, before the command ends (the link of `connect`): stdout, or stderr
+   * with `--json` so stdout keeps a single JSON document. Shown even with `--quiet`.
+   */
+  prompt(lines: string | string[]): void {
+    this.#lines(this.options.json ? this.stderr : this.stdout, lines);
+  }
+
   /** Progress of a long command (stderr). Silent with `--quiet` or `--json`. */
   progress(line: string): void {
     if (!this.options.quiet && !this.options.json) this.#lines(this.stderr, line);
