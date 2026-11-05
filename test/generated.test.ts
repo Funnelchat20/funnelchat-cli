@@ -36,8 +36,13 @@ describe('generated route table', () => {
     expect(routes.conversationsList).toMatchObject({ pagination: 'cursor' });
   });
 
-  it('every route the CLI calls is a read', () => {
-    for (const route of Object.values(routes)) expect(route.method).toBe('GET');
+  it('every route the CLI calls is a read, except the three writes of the first use', () => {
+    const writes = Object.values(routes).filter((route) => route.method !== 'GET');
+    expect(writes.map((route) => `${route.method} ${route.path}`).sort()).toEqual([
+      'POST /api/v1/connect-links',
+      'POST /api/v1/groups/{group}/import',
+      'POST /api/v1/message/send-message',
+    ]);
   });
 
   it('the version matches package.json', () => {

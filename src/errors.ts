@@ -17,10 +17,12 @@ export const ExitCode = {
   NOT_FOUND: 4,
   /** A limit the CLI does not wait for: the daily cap or a `Retry-After` too long. Resumable. */
   RATE_LIMITED: 5,
-  /** The API failed (`5xx`, `422`…) or could not be reached, after the retries. */
+  /** The API failed (`5xx`, `422`…) or could not be reached, after the retries; or a sent message failed. */
   API: 6,
   /** The output already exists: the CLI never overwrites a file. */
   EXISTS: 7,
+  /** The CLI waited and it did not happen: no number connected within `connect --timeout`. */
+  TIMEOUT: 8,
   /** Interrupted with Ctrl+C. An export can be resumed. */
   INTERRUPTED: 130,
 } as const;
@@ -128,6 +130,60 @@ function withRequestId(hint: string | undefined, requestId: string | undefined):
   return hint ? `${hint}\n${cite}` : cite;
 }
 
+/**
+ * The stable `error` codes the commands that write can get, in plain words (the API's own `message` is in
+ * Spanish and changes by area). The exit code still comes from the status. Sources, all in production:
+ * conversations v1.19.21 (sends of a key), accounts v1.5.97 (connect links) and communities v2.35.7
+ * (following a group), as the full unified spec of developers-portal 99928866 and funnelchat-node
+ * feat/seguir-un-grupo @ f913feb (src/core/error-codes.ts) list them.
+ */
+export const KNOWN_API_ERRORS: Readonly<Record<string, { message: string; hint?: string }>> = {
+  // send
+  window_closed: {
+    message: 'WhatsApp does not let this number send free text to this contact now: on an official number, free text only goes out within 24 hours of the contact\'s last message, so the first message to a new contact has to be a template.',
+    hint: 'Nothing was sent. Ask the contact to write to you first, or send from a number connected by QR.',
+  },
+  recipient_mismatch: { message: 'The phone is not the one of that contact.', hint: 'Nothing was sent.' },
+  recipient_unsupported: { message: 'That recipient is a group, a broadcast list or a channel: `send` writes to a person.', hint: 'Nothing was sent.' },
+  antiblock_duplicate_content: {
+    message: 'The same text was already sent too many times to a contact that did not answer: Funnelchat stopped it to protect the number.',
+    hint: 'Nothing was sent.',
+  },
+  antiblock_unanswered_limit: {
+    message: 'Too many messages in a row to a contact that did not answer: Funnelchat stopped it to protect the number.',
+    hint: 'Nothing was sent. Wait for the contact to answer.',
+  },
+  device_unavailable: { message: 'The number is not connected or cannot send now.', hint: 'Nothing was sent. Check it with `funnelchat numbers list`.' },
+  not_sent: { message: 'The message could not be registered for sending.', hint: 'Nothing was sent.' },
+  mac_lockout_24h: { message: 'The account used up its monthly active contacts (MACs) and is locked for 24 hours.', hint: 'Nothing was sent. Retrying does not help: see `funnelchat mac status`.' },
+  mac_limit_reached: { message: 'The account used up its monthly active contacts (MACs).', hint: 'Nothing was sent. Retrying does not help: see `funnelchat mac status`.' },
+  // connect
+  numbers_not_included: { message: 'Your plan does not include WhatsApp numbers.', hint: 'No link was created. Change the plan from the panel.' },
+  number_limit_reached: { message: 'Every number of your plan is in use.', hint: 'No link was created. Delete a number or change the plan from the panel.' },
+  connect_not_allowed: { message: 'Only the owner of the account can connect numbers, and this key is not the owner\'s.', hint: 'No link was created.' },
+  too_many_open_links: { message: 'The account already has 20 connect links open.', hint: 'No link was created. They end when they are used or expire.' },
+  // groups
+  provider_unsupported: { message: 'The number cannot do that: only a number connected by QR can follow groups.' },
+  group_not_found: {
+    message: 'That group is not one of the number\'s groups (or it belongs to another workspace of the account).',
+    hint: 'List them with `funnelchat groups` and use the uid it shows.',
+  },
+  device_not_found: { message: 'That number is not one of the account (or of this key\'s workspace).', hint: 'See them with `funnelchat numbers list`.' },
+  device_not_connected: { message: 'The number is not connected.', hint: 'See it with `funnelchat numbers list`.' },
+  device_not_group_admin: { message: 'The number is not an admin of that group.' },
+  unsupported_group_type: { message: 'That uid is a community or a channel, not a group.' },
+  import_permission_required: { message: 'Following a group needs the Groups and campaigns → Manage groups permission (`communities:operate`).', hint: 'Create a key with that permission.' },
+  import_rate_limited: { message: 'This number already followed 5 groups in the last minute.' },
+  import_in_progress: { message: 'That group is being imported right now.', hint: 'Try again in a few seconds.' },
+};
+
+function exitCodeOf(status: number): ExitCodeValue {
+  if (status === 401 || status === 403) return ExitCode.AUTH;
+  if (status === 404) return ExitCode.NOT_FOUND;
+  if (status === 429) return ExitCode.RATE_LIMITED;
+  return ExitCode.API;
+}
+
 function describe(
   init: ApiErrorInit,
   apiCode: string | undefined,
@@ -143,6 +199,10 @@ function describe(
       message: `The API rejected the key (401 on ${where})${said}`,
       hint: 'Check that the key is complete (with the `<id>|` at the start) and still active, and run `funnelchat login` again.',
     };
+  }
+  const known = apiCode !== undefined && Object.hasOwn(KNOWN_API_ERRORS, apiCode) ? KNOWN_API_ERRORS[apiCode] : undefined;
+  if (known) {
+    return { exitCode: exitCodeOf(status), message: `${known.message} (${status} ${apiCode} on ${where})`, ...(known.hint ? { hint: known.hint } : {}) };
   }
   if (status === 403) {
     const permission = init.permission ? ` This route needs \`${init.permission}\`.` : '';

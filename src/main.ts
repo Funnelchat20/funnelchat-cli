@@ -8,12 +8,22 @@ import { Context } from './context.js';
 import { ExitCode } from './errors.js';
 import { login, logout, profilesList, profilesUse, whoami } from './commands/account.js';
 import { collect, explicitOptions } from './commands/common.js';
+import { connect, CONNECT_TIMEOUT_SECONDS, type ConnectFlags } from './commands/connect.js';
 import { CONTACTS_FLAG_NAMES, contactsExport, type ContactsExportFlags } from './commands/contacts.js';
 import { CONVERSATIONS_FLAG_NAMES, conversationsExport, type ConversationsExportFlags, DEFAULT_PART_SIZE } from './commands/conversations.js';
+import { groupsFollow, groupsList, type GroupsFlags } from './commands/groups.js';
 import { macStatus } from './commands/mac.js';
 import { numbersHealth, numbersList } from './commands/numbers.js';
+import { send, SEND_TIMEOUT_SECONDS, type SendFlags } from './commands/send.js';
 import { templatesList, type TemplatesListFlags } from './commands/templates.js';
 import { VERSION } from './version.js';
+
+const FIRST_USE_HELP = `
+First use:
+  funnelchat login                                        paste your key; it is not shown
+  funnelchat connect                                      open the link and scan the QR with WhatsApp
+  funnelchat send 5491122334455 "Hello from Funnelchat"   and watch it: queued, sent, delivered, read
+`;
 
 const EXIT_CODES_HELP = `
 Exit codes:
@@ -23,8 +33,9 @@ Exit codes:
   3    no key, a key the API rejects (401) or a missing permission (403)
   4    not found in your account (404)
   5    an API limit the CLI does not wait for (daily cap or a long Retry-After): it can be resumed
-  6    API or network error, after the retries
+  6    API or network error, after the retries; or the message sent failed (send)
   7    the output already exists: the CLI never overwrites a file
+  8    no number connected within the time (connect)
   130  interrupted with Ctrl+C: an export can be resumed
 
 Environment variables:
@@ -34,7 +45,8 @@ Environment variables:
   FUNNELCHAT_RATE        requests per second
   FUNNELCHAT_CONFIG_DIR  where to keep the configuration
 
-The CLI only reads: it sends no messages and changes nothing in your account.`;
+Only connect, send and groups follow change something in your account; every other command only reads.
+A write is sent once and never retried on its own.`;
 
 type Action = (ctx: ContextType, command: Command, ...args: unknown[]) => Promise<void> | void;
 
@@ -43,7 +55,9 @@ export async function run(argv: string[], io: Io): Promise<number> {
 
   const program = new Command('funnelchat');
   program
-    .description('Export conversations and contacts from your Funnelchat account through the public API, and check your numbers, templates and MACs.')
+    .description(
+      'Connect a WhatsApp number, send a message and watch it get read, and follow groups, through the Funnelchat public API. Also exports conversations and contacts, and checks numbers, templates and MACs.',
+    )
     .version(VERSION, '-V, --version', 'Shows the version.')
     .helpOption('-h, --help', 'Shows the help.')
     .helpCommand('help [command]', 'Shows the help of a command.')
@@ -55,7 +69,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
     .option('-q, --quiet', 'No progress messages.')
     .option('--rate <requests>', 'Requests per second at most (1 by default).')
     .option('--max-wait <seconds>', 'How long to wait for a Retry-After on its own before stopping (60 by default).')
-    .addHelpText('after', EXIT_CODES_HELP)
+    .addHelpText('after', FIRST_USE_HELP + EXIT_CODES_HELP)
     .showSuggestionAfterError(true)
     .exitOverride()
     .configureOutput({
@@ -101,6 +115,36 @@ export async function run(argv: string[], io: Io): Promise<number> {
     .argument('<name>', 'Profile to activate.')
     .description('Chooses the profile used by default.')
     .action(action((ctx, _command, name) => profilesUse(ctx, name as string)));
+
+  // --- first use: connect, send, groups ---------------------------------------------------------
+  program
+    .command('connect')
+    .description('Creates a link to connect a WhatsApp number by QR code, prints it and waits until the number connects.')
+    .option('--no-wait', 'Prints the link and ends, without waiting (for scripts and agents).')
+    .option('--timeout <seconds>', `How long to wait for the number (${CONNECT_TIMEOUT_SECONDS} by default).`)
+    .action(action((ctx, command) => connect(ctx, command.opts() as ConnectFlags)));
+
+  program
+    .command('send')
+    .argument('<phone>', 'Phone with the country code, for example 5491122334455.')
+    .argument('<text...>', 'The text of the message (in quotes, or as several words).')
+    .description('Sends a text message to a phone, even one that is not a contact yet, and shows its status live: queued, sent, delivered, read.')
+    .option('--device <id>', 'Number to send from (by default the only connected one).')
+    .option('--timeout <seconds>', `How long to watch the status (${SEND_TIMEOUT_SECONDS} by default; 0 does not watch).`)
+    .action(action((ctx, command, phone, text) => send(ctx, phone as string, text as string[], command.opts() as SendFlags)));
+
+  const groups = program.command('groups').description('WhatsApp groups of a number connected by QR.');
+  groups
+    .command('list', { isDefault: true })
+    .description('Lists the groups of the number as WhatsApp has them, and which ones you follow.')
+    .option('--device <id>', 'Number whose groups to list (by default the only one connected by QR).')
+    .action(action((ctx, command) => groupsList(ctx, command.opts() as GroupsFlags)));
+  groups
+    .command('follow')
+    .argument('<group>', 'The uid of the group, as `funnelchat groups` shows it.')
+    .description('Follows a group: imports it to your account, so who joins and leaves arrives as webhook events.')
+    .option('--device <id>', 'Number the group is on (by default the only one connected by QR).')
+    .action(action((ctx, command, group) => groupsFollow(ctx, group as string, command.opts() as GroupsFlags)));
 
   // --- numbers ---------------------------------------------------------------------------------
   const numbers = program.command('numbers').description('Your WhatsApp numbers.');

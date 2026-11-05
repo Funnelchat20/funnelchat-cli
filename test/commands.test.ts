@@ -141,7 +141,7 @@ describe('usage', () => {
     const help = await run(['--help']);
     expect(help.code).toBe(0);
     expect(help.stdout).toContain('Exit codes');
-    expect(help.stdout).toContain('it sends no messages and changes nothing');
+    expect(help.stdout).toContain('Only connect, send and groups follow change something in your account');
     const version = await run(['--version']);
     expect(version.code).toBe(0);
     expect(version.stdout.trim()).toBe(VERSION);

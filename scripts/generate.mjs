@@ -7,16 +7,24 @@
  *                                             from in spec/procedencia.json, then regenerate
  *   node scripts/generate.mjs --check         regenerate in memory and fail if src/generated/* differs
  *
+ * With --spec, when the file is not inside a checkout of the repository it was built from (the portal's
+ * full spec is a build output git ignores), say where it came from: `--source key=value` (repository, path,
+ * branch, commit, commit_date, file_tracked_in_git), recorded in spec/procedencia.json as declared, not
+ * read from git; `--domain <domain>=<sha>@<branch>@<snapshot_at>` for the snapshot of an area the spec does
+ * not date itself (`x-fc-sources` without `sha`); and `--expect-sha256 <hex>` to refuse a file that is not
+ * the one announced.
+ *
  * Steps:
  *   1. (with --spec) copy the spec and write spec/procedencia.json (repository, branch, commit, sha256).
  *   2. Merge spec/pending.json (routes of unmerged branches) into the snapshot, only while the snapshot
  *      lacks them. The report lists the entries a new snapshot made obsolete.
- *   3. Resolve every route of spec/routes-used.json against the merged spec. A route or a query parameter
- *      the spec does not have fails the generation: the CLI never calls a route it made up.
- *   4. Write src/generated/routes.ts: method, path, domain, permission, pagination shape, perPage ceiling
- *      and, for a pending route, where it comes from.
+ *   3. Resolve every route of spec/routes-used.json against the merged spec. A route, a query parameter or
+ *      a body field the spec does not have fails the generation: the CLI never calls a route it made up.
+ *   4. Write src/generated/routes.ts: method, path, domain, permission, pagination shape, perPage ceiling,
+ *      the body fields it sends and, for a pending route, where it comes from.
  *
- * The import step (1) is adapted from funnelchat-node, branch feat/inicial @ de14b86, scripts/generate.mjs.
+ * The import step (1) is adapted from funnelchat-node, branch feat/inicial @ de14b86, scripts/generate.mjs,
+ * and its --source, --domain and --expect-sha256 from feat/seguir-un-grupo @ f913feb.
  * Nothing in src/generated/ is edited by hand.
  */
 import { createHash } from 'node:crypto';
@@ -32,18 +40,47 @@ const PENDING_FILE = resolve(ROOT, 'spec/pending.json');
 const USED_FILE = resolve(ROOT, 'spec/routes-used.json');
 const OUT_FILE = resolve(ROOT, 'src/generated/routes.ts');
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'patch'];
+/** The methods the CLI calls. A write is never retried (src/http/client.ts). */
+const USED_METHODS = ['GET', 'POST'];
 
 function parseArgs(argv) {
-  const args = { spec: null, check: false };
+  const args = { spec: null, check: false, source: {}, domains: {}, expectSha256: null };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--check') args.check = true;
     else if (arg === '--spec') args.spec = argv[++i];
     else if (arg.startsWith('--spec=')) args.spec = arg.slice('--spec='.length);
+    else if (arg === '--source') addSource(args.source, argv[++i]);
+    else if (arg === '--domain') addDomain(args.domains, argv[++i]);
+    else if (arg === '--expect-sha256') args.expectSha256 = argv[++i]?.toLowerCase();
     else throw new Error(`Unknown argument: ${arg}`);
   }
   if (args.spec === undefined) throw new Error('--spec needs the path of the file');
+  if ((Object.keys(args.source).length || Object.keys(args.domains).length || args.expectSha256) && !args.spec) {
+    throw new Error('--source, --domain and --expect-sha256 go with --spec');
+  }
   return args;
+}
+
+const DECLARABLE_SOURCE_KEYS = new Set(['repository', 'path', 'branch', 'commit', 'commit_date', 'file_tracked_in_git']);
+
+/** `--source commit=99928866…`: one field of where the spec came from, declared by whoever imports it. */
+function addSource(source, pair) {
+  const at = pair?.indexOf('=') ?? -1;
+  const key = at > 0 ? pair.slice(0, at) : null;
+  if (!key || !DECLARABLE_SOURCE_KEYS.has(key)) {
+    throw new Error(`--source takes key=value, with key one of: ${[...DECLARABLE_SOURCE_KEYS].join(', ')}`);
+  }
+  const value = pair.slice(at + 1);
+  source[key] = key === 'file_tracked_in_git' ? value === 'true' : value;
+}
+
+/** `--domain accounts=558332bcf@snapshot/v1.5.97@2026-11-04T16:58:11-03:00`. */
+function addDomain(domains, pair) {
+  const match = /^([a-z-]+)=([0-9a-f]{7,40})@([^@]+)@([^@]+)$/.exec(pair ?? '');
+  if (!match) throw new Error('--domain takes <domain>=<sha>@<branch>@<snapshot_at>');
+  const [, domain, sha, branch, snapshotAt] = match;
+  domains[domain] = { sha, branch, snapshot_at: snapshotAt };
 }
 
 const sha256 = (buffer) => createHash('sha256').update(buffer).digest('hex');
@@ -63,9 +100,12 @@ function countOperations(spec) {
 }
 
 /** Step 1: copy a new spec into the repo and record its provenance. */
-function importSpec(source) {
+function importSpec(source, declared = {}, declaredDomains = {}, expectSha256 = null) {
   const sourcePath = resolve(source);
   const bytes = readFileSync(sourcePath);
+  if (expectSha256 && sha256(bytes) !== expectSha256) {
+    throw new Error(`${source}: its sha256 is ${sha256(bytes)}, not the expected ${expectSha256}.`);
+  }
   const spec = JSON.parse(bytes.toString('utf8'));
   const dir = dirname(sourcePath);
   const top = git(dir, 'rev-parse', '--show-toplevel');
@@ -97,14 +137,28 @@ function importSpec(source) {
       paths: Object.keys(spec.paths ?? {}).length,
       operations: countOperations(spec),
       webhooks: Object.keys(spec.webhooks ?? {}).length,
-      domains: (spec['x-fc-sources'] ?? []).map((s) => ({
-        domain: s.domain,
-        sha: s.sha,
-        branch: s.branch,
-        snapshot_at: s.snapshot_at,
-      })),
+      domains: (spec['x-fc-sources'] ?? []).map((s) => {
+        const given = s.sha ? null : declaredDomains[s.domain];
+        return {
+          domain: s.domain,
+          sha: s.sha ?? given?.sha ?? null,
+          branch: s.branch ?? given?.branch ?? null,
+          snapshot_at: s.snapshot_at ?? given?.snapshot_at ?? null,
+          ...(given ? { declared: true } : {}),
+        };
+      }),
     },
   };
+
+  const declaredKeys = Object.keys(declared);
+  if (declaredKeys.length) {
+    Object.assign(provenance.source, declared);
+    // What git did not say, it did not check either: only the fields read from a checkout are git's.
+    if (!top) provenance.source.tracked_files_clean = null;
+    provenance.source.declared = declaredKeys;
+    provenance.source.declared_note =
+      'The fields in `declared` were given on the command line (`--source`), not read from git: the file was imported from outside a checkout of its repository.';
+  }
 
   mkdirSync(dirname(SPEC_FILE), { recursive: true });
   writeFileSync(SPEC_FILE, bytes);
@@ -174,9 +228,19 @@ function acceptsPlainArray(spec, schema) {
   return (node.anyOf ?? node.oneOf ?? []).some((child) => resolveRef(spec, child)?.type === 'array');
 }
 
+/** The top-level fields of a JSON request body schema (through `$ref`, `allOf`, `anyOf` and `oneOf`). */
+function bodyFields(spec, schema, out = new Set(), depth = 0) {
+  const node = resolveRef(spec, schema);
+  if (!node || typeof node !== 'object' || depth > 8) return out;
+  for (const key of Object.keys(node.properties ?? {})) out.add(key);
+  for (const key of ['allOf', 'anyOf', 'oneOf']) if (Array.isArray(node[key])) for (const child of node[key]) bodyFields(spec, child, out, depth + 1);
+  return out;
+}
+
 /** Step 3: resolve one used route against the merged spec. */
 function resolveRoute(spec, used, pending) {
   const label = `${used.method} ${used.path}`;
+  if (!USED_METHODS.includes(used.method)) throw new Error(`${label}: the CLI calls only ${USED_METHODS.join(' and ')}.`);
   const operation = spec.paths?.[used.path]?.[used.method.toLowerCase()];
   if (!operation) throw new Error(`${label}: the route is neither in the spec nor in spec/pending.json.`);
 
@@ -195,6 +259,12 @@ function resolveRoute(spec, used, pending) {
   for (const name of used.query) {
     if (!queryParams.has(name)) throw new Error(`${label}: the spec has no query parameter "${name}".`);
   }
+  const body = used.body ?? [];
+  if (body.length && used.method === 'GET') throw new Error(`${label}: a GET sends no body.`);
+  const fields = bodyFields(spec, operation.requestBody?.content?.['application/json']?.schema);
+  for (const name of body) {
+    if (!fields.has(name)) throw new Error(`${label}: the request body in the spec has no field "${name}".`);
+  }
 
   const perPage = queryParams.get('perPage');
   const perPageMax = perPage?.schema?.maximum ?? operation['x-fc-listing']?.per_page_max ?? null;
@@ -211,6 +281,7 @@ function resolveRoute(spec, used, pending) {
     plainArray: acceptsPlainArray(spec, schema),
     perPageMax,
     query: used.query,
+    body,
     pending: pendingKey ? { key: pendingKey, source: pending['x-fc-pending']?.sources?.[pendingKey] ?? null } : null,
   };
 }
@@ -222,7 +293,8 @@ function render(routes, provenance) {
     '',
     'export interface RouteInfo {',
     "  readonly id: string;",
-    "  readonly method: 'GET';",
+    '  /** A `POST` is a write: the client never retries it. */',
+    "  readonly method: 'GET' | 'POST';",
     '  readonly path: string;',
     '  readonly summary: string | null;',
     "  /** Domain that serves the route (`x-fc-domain`): accounts and communities have a daily call cap per key. */",
@@ -234,6 +306,8 @@ function render(routes, provenance) {
     '  readonly plainArray: boolean;',
     '  readonly perPageMax: number | null;',
     '  readonly query: readonly string[];',
+    '  /** The fields of the JSON body the CLI sends (checked against the spec). */',
+    '  readonly body: readonly string[];',
     '  /** Set when the route comes from an unmerged branch (spec/pending.json), not from the snapshot. */',
     '  readonly pending: { readonly key: string; readonly source: string | null } | null;',
     '}',
@@ -261,7 +335,7 @@ function render(routes, provenance) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  if (args.spec) importSpec(args.spec);
+  if (args.spec) importSpec(args.spec, args.source, args.domains, args.expectSha256);
   if (!existsSync(SPEC_FILE)) throw new Error('spec/funnelchat.json is missing: run `npm run generate -- --spec <file>`.');
 
   const spec = JSON.parse(readFileSync(SPEC_FILE, 'utf8'));

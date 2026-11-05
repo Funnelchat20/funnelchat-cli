@@ -1,8 +1,14 @@
 {
-  "description": "The API routes the CLI uses, with the query parameters it sends. `npm run generate` looks each one up in spec/funnelchat.json (or in spec/pending.json while the snapshot lacks it) and fails if a route or a parameter does not exist: the CLI does not make up routes. `page` and `cursor` need not be listed: they come from the pagination shape of the answer.",
+  "description": "The API routes the CLI uses, with the query parameters and, for a write, the body fields it sends. `npm run generate` looks each one up in spec/funnelchat.json (or in spec/pending.json while the snapshot lacks it) and fails if a route, a parameter or a body field does not exist: the CLI does not make up routes. `page` and `cursor` need not be listed: they come from the pagination shape of the answer. The only writes (POST) are the three of the first use: connect, send and groups follow.",
   "routes": [
     { "id": "me", "method": "GET", "path": "/api/v1/me", "query": [], "used_by": ["login", "whoami"] },
-    { "id": "devicesList", "method": "GET", "path": "/api/v1/devices", "query": ["perPage"], "used_by": ["numbers list", "numbers health"] },
+    {
+      "id": "devicesList",
+      "method": "GET",
+      "path": "/api/v1/devices",
+      "query": ["perPage"],
+      "used_by": ["numbers list", "numbers health", "connect", "send", "groups", "groups follow"]
+    },
     { "id": "deviceHealth", "method": "GET", "path": "/api/v1/devices/{device}/health", "query": [], "used_by": ["numbers health"] },
     {
       "id": "contactsList",
@@ -23,6 +29,18 @@
     },
     { "id": "contactMessages", "method": "GET", "path": "/api/v1/contacts/{contactId}/messages", "query": ["perPage", "updated_since"], "used_by": ["conversations export"] },
     { "id": "templatesList", "method": "GET", "path": "/api/v1/templates", "query": ["perPage", "deviceId", "status"], "used_by": ["templates list"] },
-    { "id": "macStatus", "method": "GET", "path": "/api/v1/mac/status", "query": [], "used_by": ["mac status"] }
+    { "id": "macStatus", "method": "GET", "path": "/api/v1/mac/status", "query": [], "used_by": ["mac status"] },
+    { "id": "connectLinkCreate", "method": "POST", "path": "/api/v1/connect-links", "query": [], "body": ["type"], "used_by": ["connect"] },
+    {
+      "id": "sendMessage",
+      "method": "POST",
+      "path": "/api/v1/message/send-message",
+      "query": [],
+      "body": ["device_id", "phone", "text"],
+      "used_by": ["send"]
+    },
+    { "id": "messageShow", "method": "GET", "path": "/api/v1/contacts/{contact}/messages/{message}", "query": [], "used_by": ["send"] },
+    { "id": "deviceGroups", "method": "GET", "path": "/api/v1/devices/{device}/groups", "query": ["pageSize"], "used_by": ["groups"] },
+    { "id": "groupImport", "method": "POST", "path": "/api/v1/groups/{group}/import", "query": [], "body": ["device_id"], "used_by": ["groups follow"] }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "name": "@funnelchat-hq/cli",
-  "version": "0.1.1",
-  "description": "Funnelchat CLI to export conversations and contacts through the public API, and check numbers, templates and MACs",
+  "version": "0.2.0",
+  "description": "Funnelchat CLI: connect a WhatsApp number, send a message and watch it get read, follow groups, and export conversations and contacts through the public API",
   "license": "MIT",
   "author": {
     "name": "Funnelchat",
