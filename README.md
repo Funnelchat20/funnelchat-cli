@@ -23,6 +23,8 @@ The phone does not need to be a contact yet: the send creates it. Send it to you
 
 **Handing it to an AI agent?** Agents are good at running commands. Two things help them: `funnelchat connect --no-wait` prints the link and ends at once (the agent shows it to you, and `funnelchat numbers list` says when the number is connected), and `--json` on any command gives one JSON document to read.
 
+**Already have a number in Funnelchat?** Look first with `funnelchat numbers list`. If one is connected, use it: `send` takes it. If it is disconnected, `funnelchat connect --device <id>` reconnects that same number, without adding another. With none, connect yours by QR (`funnelchat connect`) or ask for a US number of Funnelchat on the official WhatsApp API (`funnelchat connect --us-number`).
+
 The same key also **follows your WhatsApp groups** (`funnelchat groups`), **exports your conversations and your contacts** to files you can verify, and checks your numbers, templates and MACs:
 
 ```bash
@@ -79,7 +81,7 @@ The CLI uses an API key of your account: `<id>|fc_live_...`, complete, as the **
 
 | Command | Permission |
 |---|---|
-| `connect` | `accounts:operate` (WhatsApp numbers → Create, connect and delete) and `accounts:read` to wait for the number |
+| `connect` | `accounts:operate` (WhatsApp numbers → Create, connect and delete) and `accounts:read` to wait for the number; with `--device`, `accounts:read` always (to know how the number connects) |
 | `send` | `conversations:send`; to a phone that is not a contact yet, `conversations:write` (it creates the contact); `conversations:read` to watch the status; `accounts:read` to pick the number without `--device` |
 | `groups` | `communities:read`; `accounts:read` without `--device` |
 | `groups follow` | `communities:operate` (Groups and campaigns → Manage groups); `accounts:read` without `--device` |
@@ -138,7 +140,7 @@ Every command takes `--json` for use from scripts and `--help` to see all its op
 
 ### `funnelchat connect`
 
-Connects a WhatsApp number to your account by QR code. It creates a connect link (`POST /api/v1/connect-links` with `type: "qr"`), prints it, and waits until the number is connected.
+Connects a WhatsApp number to your account by QR code. It creates a connect link (`POST /api/v1/connect-links` with `type: "qr"`), prints it, and waits until the number is connected. With `--us-number`, the link gives a new US number of Funnelchat instead; with `--device <id>`, it reconnects a number you already have.
 
 ```bash
 funnelchat connect
@@ -161,12 +163,38 @@ Send a first message: funnelchat send <phone> "Hello from Funnelchat"
 |---|---|
 | `--no-wait` | Prints the link and ends, without waiting. For scripts and agents: `funnelchat numbers list` then shows when the number is connected. |
 | `--timeout <seconds>` | How long to wait for the number. By default, 900 (15 minutes). |
+| `--us-number` | A new US number of Funnelchat on the official WhatsApp API, instead of a QR. |
+| `--device <id>` | Reconnects that number of your account, with a link of its own type. It never adds a number. Not with `--us-number`. |
 
 - **The link** is a page on Funnelchat's domain. Opening it does not use it; tapping its button creates the number and shows the QR, which renews itself every 5 seconds. Treat it as a secret: it comes only in this answer, and whoever has it can connect a number to your account.
 - **How it knows:** it lists your numbers before creating the link and then every 5 seconds (`GET /api/v1/devices`), and stops at the first one that was not connected before. Each listing counts toward the daily cap of accounts (about 180 calls in 15 minutes, of 10,000 a day).
 - **With `--json`**, the link goes to stderr as soon as it exists, and stdout gets one document at the end, with the link and the number.
 - **No QR in the terminal:** the page shows the QR that WhatsApp scans.
 - If nobody scans the QR within 10 minutes of tapping the button, the link fails and the number it created is deleted: run `funnelchat connect` again. If the CLI stops waiting before (`--timeout`, exit code `8`, or Ctrl+C), the link still works until it expires.
+
+**A US number of Funnelchat** (`--us-number`): the link is `type: "meta"` with `allowed_connection_types: ["dedicated"]` and `provision_us_number: true`.
+
+```bash
+funnelchat connect --us-number
+```
+
+- **On the page,** the person taps the button to use a Funnelchat US number and logs in with Facebook (Meta's signup, the same as the panel's). The number is new and dedicated to the API (it is not in the WhatsApp Business app).
+- **Meta charges its messages** to the payment method of the WhatsApp Business account: it has to be added in Meta.
+- If the Facebook login or Meta fails, the same link can be tried again, up to 5 failed attempts.
+- **It is an official number:** free text only reaches a contact who wrote to it in the last 24 hours (`422 window_closed` otherwise), so write to it first from the phone you send to.
+- Connecting an official number of your own by Facebook is done from the panel.
+
+**Reconnecting a number** (`--device <id>`): the link carries `device_id`, so it reconnects that number and takes no new place.
+
+```bash
+funnelchat numbers list            # the id, and whether it is connected
+funnelchat connect --device 4
+```
+
+- **Of its own type:** a number connected by QR gets a QR link (`type: "qr"`); an official one gets a Facebook link (`type: "meta"`, with its connection, `coexistence` or `dedicated`, as `allowed_connection_types`). The CLI lists your numbers first to know which, even with `--no-wait`.
+- **Already connected:** the CLI says so and creates no link (exit code `0`).
+- **Not one of your numbers:** exit code `4`, and no link is created.
+- The wait ends when that number is connected.
 
 ### `funnelchat send <phone> <text>`
 
@@ -388,7 +416,7 @@ MACs in the period: 120 of 1,000 (12 %) · 880 left
 {
   "manifest_version": 1,
   "kind": "conversations",
-  "generator": { "name": "@funnelchat-hq/cli", "version": "0.2.0" },
+  "generator": { "name": "@funnelchat-hq/cli", "version": "0.3.0" },
   "api": { "base_url": "https://api.funnelchat.com", "spec": { "commit": "99928866…", "sha256": "0ffaad2…" }, "routes": [ … ] },
   "started_at": "2026-10-16T12:00:00.000Z",
   "finished_at": "2026-10-16T12:41:10.000Z",
@@ -502,7 +530,7 @@ npm run build
 
 To develop you need Node 20 or later (for the test tools); the CLI it builds runs on Node 18.
 
-**The tests** use simulated answers, with the same shapes as the API (pages by number and by cursor). They cover paging, resuming, `429`s, that the key never shows up in any output or any file, that no file is overwritten, the manifest's SHA-256, and the first use: `connect` waiting for the number, and `send` watching the status until it is read.
+**The tests** use simulated answers, with the same shapes as the API (pages by number and by cursor). They cover paging, resuming, `429`s, that the key never shows up in any output or any file, that no file is overwritten, the manifest's SHA-256, and the first use: `connect` waiting for the number (also a US number and a reconnection), and `send` watching the status until it is read.
 
 **End to end against the sandbox.** With an already built checkout of [funnelchat-sandbox](https://github.com/Funnelchat20/funnelchat-sandbox) (`npm install && npm run build` in its folder), this test starts it in the same process, on a free port, and runs the CLI against it. It does not touch the sandbox's repository:
 

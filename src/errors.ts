@@ -162,6 +162,13 @@ export const KNOWN_API_ERRORS: Readonly<Record<string, { message: string; hint?:
   number_limit_reached: { message: 'Every number of your plan is in use.', hint: 'No link was created. Delete a number or change the plan from the panel.' },
   connect_not_allowed: { message: 'Only the owner of the account can connect numbers, and this key is not the owner\'s.', hint: 'No link was created.' },
   too_many_open_links: { message: 'The account already has 20 connect links open.', hint: 'No link was created. They end when they are used or expire.' },
+  // connect --device and --us-number
+  invalid_reference_device: { message: 'That number is not one of your account\'s numbers.', hint: 'No link was created. See them with `funnelchat numbers list`.' },
+  connection_type_mismatch: {
+    message: 'The link is not of the number\'s type: a number connected by QR reconnects by QR, and an official one through Meta.',
+    hint: 'No link was created. The number may have changed since it was listed: check it with `funnelchat numbers list` and try again.',
+  },
+  meta_connect_disabled: { message: 'Connecting official numbers by link is not enabled right now.', hint: 'No link was created. Try again later.' },
   // groups
   provider_unsupported: { message: 'The number cannot do that: only a number connected by QR can follow groups.' },
   group_not_found: {

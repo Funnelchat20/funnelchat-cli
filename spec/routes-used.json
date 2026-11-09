@@ -30,7 +30,7 @@
     { "id": "contactMessages", "method": "GET", "path": "/api/v1/contacts/{contactId}/messages", "query": ["perPage", "updated_since"], "used_by": ["conversations export"] },
     { "id": "templatesList", "method": "GET", "path": "/api/v1/templates", "query": ["perPage", "deviceId", "status"], "used_by": ["templates list"] },
     { "id": "macStatus", "method": "GET", "path": "/api/v1/mac/status", "query": [], "used_by": ["mac status"] },
-    { "id": "connectLinkCreate", "method": "POST", "path": "/api/v1/connect-links", "query": [], "body": ["type"], "used_by": ["connect"] },
+    { "id": "connectLinkCreate", "method": "POST", "path": "/api/v1/connect-links", "query": [], "body": ["type", "allowed_connection_types", "provision_us_number", "device_id"], "used_by": ["connect"] },
     {
       "id": "sendMessage",
       "method": "POST",

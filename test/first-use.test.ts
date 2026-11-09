@@ -27,6 +27,58 @@ describe('first use', () => {
     expect(result.sleeps.filter((ms) => ms >= 1000)).toEqual([5000, 5000]);
   });
 
+  it('connect --us-number asks for a dedicated US number of Funnelchat and says what the page will ask', async () => {
+    const account = new FakeAccount().hook((request) => {
+      if (request.method === 'POST' && request.path === '/api/v1/connect-links') {
+        return { status: 201, body: { data: { id: 13, type: 'meta', status: 'pending', url: LINK, expires_at: '2026-11-08T12:30:00+00:00', allowed_connection_types: ['dedicated'], provision_us_number: true } } };
+      }
+      return undefined;
+    });
+
+    const { fetch, calls } = account.fetch();
+    const result = await cli(['connect', '--us-number', '--no-wait'], { fetch, cwd: tempDir() });
+    expect(result.code, result.stderr).toBe(0);
+    expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(['POST /api/v1/connect-links']);
+    expect(calls[0]?.body).toEqual({ type: 'meta', allowed_connection_types: ['dedicated'], provision_us_number: true });
+    expect(result.stdout).toContain('tap the button to use a Funnelchat US number and log in with Facebook:');
+    expect(result.stdout).toContain(LINK);
+    expect(result.stdout).toContain('the WhatsApp Business account needs a payment method in Meta.');
+  });
+
+  it('connect --device reconnects that number with a link of its own type and waits for it; never when it is connected or with --us-number', async () => {
+    let listings = 0;
+    const account = new FakeAccount().hook((request) => {
+      if (request.method === 'POST' && request.path === '/api/v1/connect-links') {
+        return { status: 201, body: { data: { id: 14, type: 'meta', status: 'pending', url: LINK, expires_at: '2026-11-08T12:30:00+00:00', device_id: 3 } } };
+      }
+      // Number 3 (official, dedicated) is disconnected until the second listing (the first poll).
+      if (request.path === '/api/v1/devices') {
+        return { body: [{ id: 3, alias: 'Oficial', number: '5491100000001', provider: 2, connection: 'dedicated', connected: ++listings >= 2 ? 1 : 0 }, { id: 4, alias: 'QR', number: '5491100000002', provider: 1, connection: 'qr', connected: 1 }] };
+      }
+      return undefined;
+    });
+
+    const { fetch, calls } = account.fetch();
+    const result = await cli(['connect', '--device', '3'], { fetch, cwd: tempDir() });
+    expect(result.code, result.stderr).toBe(0);
+    expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(['GET /api/v1/devices', 'POST /api/v1/connect-links', 'GET /api/v1/devices']);
+    expect(calls[1]?.body).toEqual({ type: 'meta', allowed_connection_types: ['dedicated'], device_id: 3 });
+    expect(result.stdout).toContain('log in with Facebook to reconnect Oficial (5491100000001) to the official WhatsApp API:');
+    expect(result.stdout).toContain('It reconnects number 3: it does not add a new one.');
+    expect(result.stdout).toContain('Reconnected: Oficial (5491100000001), id 3.');
+
+    const connected = account.fetch();
+    const already = await cli(['connect', '--device', '4'], { fetch: connected.fetch, cwd: tempDir() });
+    expect(already.code, already.stderr).toBe(0);
+    expect(connected.calls.map((c) => c.method)).toEqual(['GET']);
+    expect(already.stdout).toContain('QR (5491100000002), id 4, is already connected: there is nothing to reconnect and no link was created.');
+
+    const both = account.fetch();
+    const usage = await cli(['connect', '--device', '3', '--us-number'], { fetch: both.fetch, cwd: tempDir() });
+    expect(usage.code).toBe(2);
+    expect(both.calls).toEqual([]);
+  });
+
   it('send picks the only connected number, sends by phone and shows the status until read; a known rejection reads plainly', async () => {
     const statuses = ['sent', 'delivered', 'delivered', 'read'];
     const hooks = (rejection?: { status: number; body: unknown }) =>

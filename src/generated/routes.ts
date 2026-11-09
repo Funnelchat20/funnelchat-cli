@@ -230,7 +230,10 @@ export const routes = {
     "perPageMax": null,
     "query": [],
     "body": [
-      "type"
+      "type",
+      "allowed_connection_types",
+      "provision_us_number",
+      "device_id"
     ],
     "pending": null
   },
