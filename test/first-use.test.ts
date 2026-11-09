@@ -27,16 +27,15 @@ describe('first use', () => {
     expect(result.sleeps.filter((ms) => ms >= 1000)).toEqual([5000, 5000]);
   });
 
-  it('connect --us-number asks for a dedicated US number of Funnelchat and says what the page will ask; a plan rejection reads plainly', async () => {
-    const hooks = (rejection?: { status: number; body: unknown }) =>
-      new FakeAccount().hook((request) => {
-        if (request.method === 'POST' && request.path === '/api/v1/connect-links') {
-          return rejection ?? { status: 201, body: { data: { id: 13, type: 'meta', status: 'pending', url: LINK, expires_at: '2026-11-08T12:30:00+00:00', allowed_connection_types: ['dedicated'], provision_us_number: true } } };
-        }
-        return undefined;
-      });
+  it('connect --us-number asks for a dedicated US number of Funnelchat and says what the page will ask', async () => {
+    const account = new FakeAccount().hook((request) => {
+      if (request.method === 'POST' && request.path === '/api/v1/connect-links') {
+        return { status: 201, body: { data: { id: 13, type: 'meta', status: 'pending', url: LINK, expires_at: '2026-11-08T12:30:00+00:00', allowed_connection_types: ['dedicated'], provision_us_number: true } } };
+      }
+      return undefined;
+    });
 
-    const { fetch, calls } = hooks().fetch();
+    const { fetch, calls } = account.fetch();
     const result = await cli(['connect', '--us-number', '--no-wait'], { fetch, cwd: tempDir() });
     expect(result.code, result.stderr).toBe(0);
     expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(['POST /api/v1/connect-links']);
@@ -44,13 +43,6 @@ describe('first use', () => {
     expect(result.stdout).toContain('tap the button to use a Funnelchat US number and log in with Facebook:');
     expect(result.stdout).toContain(LINK);
     expect(result.stdout).toContain('the WhatsApp Business account needs a payment method in Meta.');
-
-    const limit = hooks({ status: 403, body: { error: 'pool_number_limit_reached', message: 'Sin números disponibles.' } }).fetch();
-    const rejected = await cli(['--json', 'connect', '--us-number', '--no-wait'], { fetch: limit.fetch, cwd: tempDir() });
-    expect(rejected.code).toBe(3);
-    const error = JSON.parse(rejected.stderr).error;
-    expect(error).toMatchObject({ code: 'pool_number_limit_reached', status: 403 });
-    expect(error.hint).toContain('No link was created.');
   });
 
   it('connect --device reconnects that number with a link of its own type and waits for it; never when it is connected or with --us-number', async () => {

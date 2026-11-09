@@ -182,7 +182,7 @@ funnelchat connect --us-number
 - **Meta charges its messages** to the payment method of the WhatsApp Business account: it has to be added in Meta.
 - If the Facebook login or Meta fails, the same link can be tried again, up to 5 failed attempts.
 - **It is an official number:** free text only reaches a contact who wrote to it in the last 24 hours (`422 window_closed` otherwise), so write to it first from the phone you send to.
-- If your plan does not allow another one, the API answers `pool_number_limit_reached` and no link is created. Connecting an official number of your own by Facebook is done from the panel.
+- Connecting an official number of your own by Facebook is done from the panel.
 
 **Reconnecting a number** (`--device <id>`): the link carries `device_id`, so it reconnects that number and takes no new place.
 

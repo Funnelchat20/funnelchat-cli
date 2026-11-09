@@ -135,8 +135,7 @@ function withRequestId(hint: string | undefined, requestId: string | undefined):
  * Spanish and changes by area). The exit code still comes from the status. Sources, all in production:
  * conversations v1.19.21 (sends of a key), accounts v1.5.97 (connect links) and communities v2.35.7
  * (following a group), as the full unified spec of developers-portal 99928866 and funnelchat-node
- * feat/seguir-un-grupo @ f913feb (src/core/error-codes.ts) list them. One exception, said where it is:
- * `pool_number_limit_reached`.
+ * feat/seguir-un-grupo @ f913feb (src/core/error-codes.ts) list them.
  */
 export const KNOWN_API_ERRORS: Readonly<Record<string, { message: string; hint?: string }>> = {
   // send
@@ -170,13 +169,6 @@ export const KNOWN_API_ERRORS: Readonly<Record<string, { message: string; hint?:
     hint: 'No link was created. The number may have changed since it was listed: check it with `funnelchat numbers list` and try again.',
   },
   meta_connect_disabled: { message: 'Connecting official numbers by link is not enabled right now.', hint: 'No link was created. Try again later.' },
-  // Not in the snapshot of accounts (v1.5.97) nor, on 2026-11-08, in the public reference of the route: it
-  // comes from the work order (accounts origin/main @ 9eaaf0992, as read there). If the API names it
-  // differently, the generic message shows instead.
-  pool_number_limit_reached: {
-    message: 'Your plan does not allow another Funnelchat US number.',
-    hint: 'No link was created. Change the plan from the panel, or connect a number of your own with `funnelchat connect`.',
-  },
   // groups
   provider_unsupported: { message: 'The number cannot do that: only a number connected by QR can follow groups.' },
   group_not_found: {
