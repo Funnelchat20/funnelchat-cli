@@ -7,9 +7,9 @@
  *                                             from in spec/procedencia.json, then regenerate
  *   node scripts/generate.mjs --check         regenerate in memory and fail if src/generated/* differs
  *
- * With --spec, when the file is not inside a checkout of the repository it was built from (the portal's
- * full spec is a build output git ignores), say where it came from: `--source key=value` (repository, path,
- * branch, commit, commit_date, file_tracked_in_git), recorded in spec/procedencia.json as declared, not
+ * With --spec, when the file is not inside a checkout of the repository it was built from (the spec the
+ * portal publishes, downloaded from its URL), say where it came from: `--source key=value` (url, repository,
+ * path, branch, commit, commit_date, file_tracked_in_git), recorded in spec/procedencia.json as declared, not
  * read from git; `--domain <domain>=<sha>@<branch>@<snapshot_at>` for the snapshot of an area the spec does
  * not date itself (`x-fc-sources` without `sha`); and `--expect-sha256 <hex>` to refuse a file that is not
  * the one announced.
@@ -22,6 +22,12 @@
  *      a body field the spec does not have fails the generation: the CLI never calls a route it made up.
  *   4. Write src/generated/routes.ts: method, path, domain, permission, pagination shape, perPage ceiling,
  *      the body fields it sends and, for a pending route, where it comes from.
+ *   5. Write src/generated/operations.ts: every operation of spec/funnelchat.json (the snapshot alone, not
+ *      spec/pending.json), the catalog `funnelchat api` lists and calls. Its name is the `operationId`; its
+ *      group comes from `x-tagGroups`, and its category from the group's `x-fc-categoria`, titled as
+ *      `x-fc-categorias` says (or from its `x-fc-bloque`, in a spec without them); its purpose from `x-fc-proposito`; its
+ *      confirmation from `x-fc-destructive`; its parameters and top-level body fields, with their types,
+ *      from the operation. Nothing is written per operation by hand: a new spec is a new catalog.
  *
  * The import step (1) is adapted from funnelchat-node, branch feat/inicial @ de14b86, scripts/generate.mjs,
  * and its --source, --domain and --expect-sha256 from feat/seguir-un-grupo @ f913feb.
@@ -39,6 +45,7 @@ const PROVENANCE_FILE = resolve(ROOT, 'spec/procedencia.json');
 const PENDING_FILE = resolve(ROOT, 'spec/pending.json');
 const USED_FILE = resolve(ROOT, 'spec/routes-used.json');
 const OUT_FILE = resolve(ROOT, 'src/generated/routes.ts');
+const OPERATIONS_FILE = resolve(ROOT, 'src/generated/operations.ts');
 const HTTP_METHODS = ['get', 'put', 'post', 'delete', 'patch'];
 /** The methods the CLI calls. A write is never retried (src/http/client.ts). */
 const USED_METHODS = ['GET', 'POST'];
@@ -62,7 +69,8 @@ function parseArgs(argv) {
   return args;
 }
 
-const DECLARABLE_SOURCE_KEYS = new Set(['repository', 'path', 'branch', 'commit', 'commit_date', 'file_tracked_in_git']);
+/** `url` is where the portal publishes it: https://developers-portal.funnelchat.app/specs/funnelchat.json. */
+const DECLARABLE_SOURCE_KEYS = new Set(['url', 'repository', 'path', 'branch', 'commit', 'commit_date', 'file_tracked_in_git']);
 
 /** `--source commit=99928866…`: one field of where the spec came from, declared by whoever imports it. */
 function addSource(source, pair) {
@@ -316,6 +324,7 @@ function render(routes, provenance) {
     `export const SPEC_SOURCE = ${JSON.stringify(
       {
         sha256: provenance?.sha256 ?? null,
+        url: provenance?.source?.url ?? null,
         repository: provenance?.source?.repository ?? null,
         branch: provenance?.source?.branch ?? null,
         commit: provenance?.source?.commit ?? null,
@@ -331,6 +340,316 @@ function render(routes, provenance) {
     '',
   ];
   return lines.join('\n');
+}
+
+// --- Step 5: the catalog of `funnelchat api` -----------------------------------------------------
+
+/** Names `funnelchat api` keeps for itself: an operation with one of them could not be called. */
+const RESERVED_NAMES = new Set(['list', 'help']);
+/**
+ * Option names the CLI already uses, as commander names their values (`--max-wait` is `maxWait`): global
+ * options and those of `funnelchat api <function>`. A parameter called like one of them gets its place as a
+ * prefix (`--query-page`), and so does one whose option two parameters of the same operation would share.
+ */
+const RESERVED_OPTIONS = new Set(['profile', 'baseUrl', 'staging', 'json', 'verbose', 'quiet', 'rate', 'maxWait', 'version', 'help', 'field', 'body', 'yes', 'all']);
+/** Query parameters that set the size of a page, in the order the catalog prefers them. */
+const PAGE_SIZE_PARAMS = ['perPage', 'per_page', 'pageSize', 'limit'];
+
+/** The option of a parameter: `status[]` is `status`, `filters[0][mode]` is `filters-0-mode`. */
+function optionName(name) {
+  return name.replace(/\[\]$/, '').replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+/** What commander calls the value of `--<option>`: `max-wait` is `maxWait`. */
+function attributeName(option) {
+  return option.split('-').reduce((name, word) => name + word[0].toUpperCase() + word.slice(1));
+}
+
+/** The type of a schema in a few words: `integer`, `string|integer`, `array` of `items`; `any` when it does not say. */
+function describeType(spec, schema) {
+  const node = resolveRef(spec, schema) ?? {};
+  const raw = [];
+  const add = (n) => {
+    const resolved = resolveRef(spec, n) ?? {};
+    if (resolved.type) raw.push(...[resolved.type].flat());
+    else if (resolved.const === null) raw.push('null');
+  };
+  add(node);
+  if (!raw.length) for (const key of ['anyOf', 'oneOf']) for (const child of node[key] ?? []) add(child);
+  const types = [...new Set(raw.filter((t) => t !== 'null'))];
+  const out = { type: types.join('|') || 'any' };
+  if (raw.includes('null')) out.nullable = true;
+  const itemsNode = types.includes('array') ? resolveRef(spec, node.items) : undefined;
+  if (itemsNode) out.items = describeType(spec, itemsNode).type;
+  const values = (node.enum ?? itemsNode?.enum ?? []).filter((v) => v !== null).map(String);
+  if (values.length) out.enum = [...new Set(values)];
+  return out;
+}
+
+function described(entry, description) {
+  const text = typeof description === 'string' ? description.trim() : '';
+  return text ? { ...entry, description: text } : entry;
+}
+
+/** The parameters of an operation, each with the option it takes in `funnelchat api <function>`. */
+function operationParams(spec, pathItem, operation, pagination, listing) {
+  const params = [...(pathItem.parameters ?? []), ...(operation.parameters ?? [])]
+    .map((p) => resolveRef(spec, p))
+    .filter((p) => p && (p.in === 'path' || p.in === 'query'))
+    .map((p) => described({ name: p.name, in: p.in, ...describeType(spec, p.schema), ...(p.in === 'path' || p.required ? { required: true } : {}) }, p.description));
+  const declared = new Set(params.filter((p) => p.in === 'query').map((p) => p.name));
+  const synthetic = (name, type, description) => {
+    if (!declared.has(name)) params.push({ name, in: 'query', type, synthetic: true, description });
+    declared.add(name);
+  };
+  // What the listing note (`x-fc-listing`) and the shape of the answer say, when the parameters do not.
+  for (const name of listing?.size_params ?? []) synthetic(name, 'integer', `Items per page${listing.per_page_max ? `, up to ${listing.per_page_max}` : ''}.`);
+  if (pagination === 'page') synthetic('page', 'integer', 'Page number.');
+  if (pagination === 'cursor') synthetic('cursor', 'string', 'The cursor of the page, from the `next_cursor` of the previous one.');
+
+  const taken = new Map();
+  for (const p of params) {
+    const option = optionName(p.name);
+    const attribute = option ? attributeName(option) : '';
+    taken.set(attribute, (taken.get(attribute) ?? 0) + 1);
+    p.option = option;
+  }
+  for (const p of params) {
+    const attribute = p.option ? attributeName(p.option) : '';
+    if (!p.option || RESERVED_OPTIONS.has(attribute) || taken.get(attribute) > 1 || p.option.startsWith('no-')) p.option = `${p.in}-${p.option || 'value'}`;
+  }
+  const seen = new Set();
+  for (const p of params) {
+    const attribute = attributeName(p.option);
+    if (seen.has(attribute)) throw new Error(`${operation.operationId ?? operation.summary}: two parameters would take the option --${p.option}.`);
+    seen.add(attribute);
+  }
+  return params.map(({ option, ...rest }) => ({ name: rest.name, in: rest.in, option, ...rest }));
+}
+
+/** The JSON body of an operation: its type and top-level fields (through `$ref`, `allOf`, `anyOf`, `oneOf`). */
+function operationBody(spec, operation) {
+  const requestBody = resolveRef(spec, operation.requestBody);
+  if (!requestBody) return null;
+  const schema = requestBody.content?.['application/json']?.schema;
+  const node = resolveRef(spec, schema) ?? {};
+  const fields = new Map();
+  const required = new Set(node.required ?? []);
+  for (const key of ['allOf']) for (const child of node[key] ?? []) for (const name of resolveRef(spec, child)?.required ?? []) required.add(name);
+  const walk = (n, depth = 0) => {
+    const resolved = resolveRef(spec, n);
+    if (!resolved || typeof resolved !== 'object' || depth > 8) return;
+    for (const [name, property] of Object.entries(resolved.properties ?? {})) {
+      if (!fields.has(name)) fields.set(name, described({ name, ...describeType(spec, property) }, resolveRef(spec, property)?.description));
+    }
+    for (const key of ['allOf', 'anyOf', 'oneOf']) for (const child of resolved[key] ?? []) walk(child, depth + 1);
+  };
+  walk(node);
+  return {
+    required: requestBody.required === true,
+    type: describeType(spec, node).type,
+    ...(requestBody.content?.['application/json'] ? {} : { contentTypes: Object.keys(requestBody.content ?? {}) }),
+    fields: [...fields.values()].map((f) => (required.has(f.name) ? { ...f, required: true } : f)),
+  };
+}
+
+/**
+ * A name for an operation without `operationId`, from its path and method alone (not from the tag, whose text
+ * the portal rewrites): the first fixed segment, then the method and the other fixed segments. `GET /api/v1/me`
+ * is `me.get`; `GET /api/v1/devices/{device}/health` would be `devices.getHealth`.
+ */
+function derivedName(method, path) {
+  const words = (segment) => segment.split(/[^A-Za-z0-9]+/).filter(Boolean);
+  const camel = (list) => list.map((w, i) => (i === 0 ? w.toLowerCase() : w[0].toUpperCase() + w.slice(1).toLowerCase())).join('');
+  const [first, ...rest] = path.replace(/^\/api\/v\d+\//, '').split('/').filter((s) => s && !s.startsWith('{'));
+  return `${camel(words(first ?? 'api')) || 'api'}.${camel([method, ...rest.flatMap(words)])}`;
+}
+
+/**
+ * The categories of the portal: `x-fc-categorias` (id, title and link of each, in their order), which each group
+ * of `x-tagGroups` names with `x-fc-categoria`. A spec without them has, at most, the `x-fc-bloque` of each group:
+ * it is then its own id and title, in the order the groups first name it.
+ */
+function buildCategories(spec) {
+  const categories = (spec['x-fc-categorias'] ?? [])
+    .filter((c) => c && typeof c.id === 'string')
+    .map((c) => ({ id: c.id, title: typeof c.title === 'string' ? c.title : c.id, url: typeof c.url === 'string' ? c.url : null }));
+  const known = new Set(categories.map((c) => c.id));
+  for (const group of spec['x-tagGroups'] ?? []) {
+    const id = group['x-fc-categoria'] ?? group['x-fc-bloque'];
+    if (typeof id === 'string' && !known.has(id)) {
+      // A group that names a category `x-fc-categorias` lacks still gets it, titled with its id.
+      categories.push({ id, title: id, url: null });
+      known.add(id);
+    }
+  }
+  return categories;
+}
+
+/** Step 5: every operation of the snapshot, by category and then in the order of the portal's groups. */
+function buildOperations(spec, categories) {
+  const tagInfo = new Map((spec.tags ?? []).map((t) => [t.name, t]));
+  const categoryIndex = new Map(categories.map((c, i) => [c.id, i]));
+  const groupOf = new Map();
+  (spec['x-tagGroups'] ?? []).forEach((group, groupIndex) => {
+    const id = group['x-fc-categoria'] ?? group['x-fc-bloque'] ?? null;
+    const category = id === null ? null : categories[categoryIndex.get(id)];
+    (group.tags ?? []).forEach((tag, tagIndex) => {
+      if (!groupOf.has(tag)) {
+        groupOf.set(tag, { group: group.name ?? null, category: category ?? null, order: [category ? categoryIndex.get(id) : Infinity, groupIndex, tagIndex] });
+      }
+    });
+  });
+
+  const operations = [];
+  let index = 0;
+  for (const [path, pathItem] of Object.entries(spec.paths ?? {})) {
+    for (const method of HTTP_METHODS) {
+      const operation = pathItem[method];
+      if (!operation) continue;
+      const tag = operation.tags?.[0] ?? null;
+      const place = tag !== null ? groupOf.get(tag) : undefined;
+      const listing = operation['x-fc-listing'];
+      let pagination = 'none';
+      if (method === 'get') {
+        const metaKeys = collectMetaKeys(spec, operation.responses?.['200']?.content?.['application/json']?.schema);
+        pagination = metaKeys.has('next_cursor') ? 'cursor' : metaKeys.has('current_page') ? 'page' : 'none';
+      }
+      const params = operationParams(spec, pathItem, operation, pagination, listing);
+      const sizeParam = pagination === 'none' ? undefined : PAGE_SIZE_PARAMS.map((name) => params.find((p) => p.in === 'query' && p.name === name)).find(Boolean);
+      const max = sizeParam ? (resolveRef(spec, (operation.parameters ?? []).find((p) => resolveRef(spec, p)?.name === sizeParam.name))?.schema?.maximum ?? listing?.per_page_max ?? null) : null;
+      const destructive = operation['x-fc-destructive'];
+      operations.push({
+        order: [...(place?.order ?? [Infinity, Infinity, Infinity]), index++],
+        info: {
+          name: operation.operationId ?? derivedName(method, path),
+          method: method.toUpperCase(),
+          path,
+          summary: operation.summary ?? null,
+          purpose: operation['x-fc-proposito'] ?? null,
+          category: place?.category?.id ?? null,
+          group: place?.group ?? null,
+          tag: tag === null ? null : (tagInfo.get(tag)?.['x-displayName'] ?? tag),
+          domain: operation['x-fc-domain'] ?? null,
+          permission: operation['x-fc-permission'] ?? null,
+          destructive: typeof destructive === 'boolean' ? destructive : null,
+          pagination,
+          pageSize: sizeParam ? { param: sizeParam.name, max } : null,
+          params,
+          body: operationBody(spec, operation),
+        },
+      });
+    }
+  }
+  const byOrder = (a, b) => a.order.reduce((diff, value, i) => diff || (value === b.order[i] ? 0 : value < b.order[i] ? -1 : 1), 0);
+  operations.sort(byOrder);
+
+  const names = new Map();
+  for (const { info } of operations) {
+    if (RESERVED_NAMES.has(info.name)) throw new Error(`${info.method} ${info.path}: the operation is called "${info.name}", a name \`funnelchat api\` keeps for itself.`);
+    if (names.has(info.name)) throw new Error(`${info.method} ${info.path} and ${names.get(info.name)} have the same name, "${info.name}".`);
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(info.name)) throw new Error(`${info.method} ${info.path}: "${info.name}" is not a name a command can take.`);
+    names.set(info.name, `${info.method} ${info.path}`);
+  }
+  return operations.map((o) => o.info);
+}
+
+function renderOperations(operations, categories, provenance) {
+  return [
+    '// Generated by scripts/generate.mjs from spec/funnelchat.json: the catalog of `funnelchat api`.',
+    '// Do not edit by hand: run `npm run generate`.',
+    '',
+    "export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';",
+    '',
+    '/** The type of a parameter or a field, as the spec gives it: `integer`, `string|integer`, `array`… `any` when it does not say. */',
+    'interface Typed {',
+    '  readonly type: string;',
+    '  /** The type of the items of an `array`. */',
+    '  readonly items?: string;',
+    '  readonly nullable?: true;',
+    '  readonly enum?: readonly string[];',
+    '  readonly required?: true;',
+    '  readonly description?: string;',
+    '}',
+    '',
+    'export interface ParamInfo extends Typed {',
+    '  readonly name: string;',
+    "  readonly in: 'path' | 'query';",
+    '  /** The option that takes it: the name without `[]`, or with its place in front if the CLI already uses that name. */',
+    '  readonly option: string;',
+    '  /** Not among the parameters of the operation: it comes from its pagination or its `x-fc-listing`. */',
+    '  readonly synthetic?: true;',
+    '}',
+    '',
+    'export interface FieldInfo extends Typed {',
+    '  readonly name: string;',
+    '}',
+    '',
+    '/** A category of the portal (`x-fc-categorias`): «Funciones de WhatsApp», «Funciones de Funnelchat»… */',
+    'export interface CategoryInfo {',
+    '  readonly id: string;',
+    '  readonly title: string;',
+    '  /** Its page in the portal. */',
+    '  readonly url: string | null;',
+    '}',
+    '',
+    'export interface OperationInfo {',
+    '  /** The `operationId` of the spec (derived from the tag, method and path when there is none). */',
+    '  readonly name: string;',
+    '  readonly method: HttpMethod;',
+    '  readonly path: string;',
+    '  readonly summary: string | null;',
+    '  /** What it is for (`x-fc-proposito`). */',
+    '  readonly purpose: string | null;',
+    '  /** The id of its category (`x-fc-categoria` of its group): one of {@link categories}. */',
+    '  readonly category: string | null;',
+    '  /** Its group in the portal (`x-tagGroups`). */',
+    '  readonly group: string | null;',
+    '  readonly tag: string | null;',
+    '  readonly domain: string | null;',
+    '  readonly permission: string | null;',
+    '  /** `x-fc-destructive`: `true` cannot be undone, `null` when the spec does not say. */',
+    '  readonly destructive: boolean | null;',
+    "  readonly pagination: 'page' | 'cursor' | 'none';",
+    '  /** The query parameter that sets the size of a page, and its ceiling. */',
+    '  readonly pageSize: { readonly param: string; readonly max: number | null } | null;',
+    '  readonly params: readonly ParamInfo[];',
+    '  readonly body: { readonly required: boolean; readonly type: string; readonly contentTypes?: readonly string[]; readonly fields: readonly FieldInfo[] } | null;',
+    '}',
+    '',
+    '/** The spec the catalog was generated from (spec/procedencia.json). */',
+    `export const OPERATIONS_SOURCE = ${JSON.stringify(
+      { sha256: provenance?.sha256 ?? null, url: provenance?.source?.url ?? null, commit: provenance?.source?.commit ?? null, operations: operations.length },
+      null,
+      2,
+    )} as const;`,
+    '',
+    '/** The categories, in the portal\'s order. */',
+    `export const categories: readonly CategoryInfo[] = ${JSON.stringify(categories, null, 2)};`,
+    '',
+    '/** Every operation of the spec, by category and then in the order of the portal\'s groups. One per line. */',
+    'export const operations: readonly OperationInfo[] = [',
+    ...operations.map((o) => `  ${JSON.stringify(o)},`),
+    '];',
+    '',
+  ].join('\n');
+}
+
+/** Writes `file`, or with --check fails if it differs. */
+function writeOrCheck(file, content, check) {
+  const label = relative(ROOT, file);
+  if (check) {
+    const current = existsSync(file) ? readFileSync(file, 'utf8') : '';
+    if (current !== content) {
+      console.error(`${label} is out of date: run \`npm run generate\`.`);
+      return false;
+    }
+    console.log(`${label} is up to date.`);
+    return true;
+  }
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, content);
+  return true;
 }
 
 function main() {
@@ -356,19 +675,18 @@ function main() {
 
   const routes = used.map((u) => resolveRoute(merged, u, pending));
   const output = render(routes, provenance);
+  // The catalog of `funnelchat api` comes from the snapshot alone: a pending route is not published yet.
+  const categories = buildCategories(spec);
+  const operations = buildOperations(spec, categories);
+  const catalog = renderOperations(operations, categories, provenance);
 
+  const fresh = [writeOrCheck(OUT_FILE, output, args.check), writeOrCheck(OPERATIONS_FILE, catalog, args.check)];
   if (args.check) {
-    const current = existsSync(OUT_FILE) ? readFileSync(OUT_FILE, 'utf8') : '';
-    if (current !== output) {
-      console.error('src/generated/routes.ts is out of date: run `npm run generate`.');
-      process.exit(1);
-    }
-    console.log('src/generated/routes.ts is up to date.');
+    if (fresh.includes(false)) process.exit(1);
     return;
   }
-  mkdirSync(dirname(OUT_FILE), { recursive: true });
-  writeFileSync(OUT_FILE, output);
   console.log(`generated: src/generated/routes.ts (${routes.length} routes, ${routes.filter((r) => r.pending).length} pending)`);
+  console.log(`generated: src/generated/operations.ts (${operations.length} operations for \`funnelchat api\`)`);
 }
 
 try {

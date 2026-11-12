@@ -213,7 +213,7 @@ export function baseManifest(state: BaseState, used: RouteInfo[], finishedAt: st
     generator: { name: PACKAGE_NAME, version: VERSION },
     api: {
       base_url: state.base_url,
-      spec: { source: SPEC_SOURCE.branch ? `developers-portal ${SPEC_SOURCE.branch}` : null, commit: SPEC_SOURCE.commit, sha256: SPEC_SOURCE.sha256 },
+      spec: { source: SPEC_SOURCE.url ?? (SPEC_SOURCE.branch ? `developers-portal ${SPEC_SOURCE.branch}` : null), commit: SPEC_SOURCE.commit, sha256: SPEC_SOURCE.sha256 },
       routes: used.map((route) => ({ route: `${route.method} ${route.path}`, pending: route.pending?.source ?? null })),
     },
     started_at: state.started_at,

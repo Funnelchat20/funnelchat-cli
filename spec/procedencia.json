@@ -1,56 +1,49 @@
 {
   "description": "Where spec/funnelchat.json came from. Written by `npm run generate -- --spec <file>`; do not edit it by hand.",
   "file": "spec/funnelchat.json",
-  "sha256": "0ffaad2b25733d28b2cc07dde8152400c3c68974b3515e71e116ce599312b0fa",
-  "bytes": 1222005,
+  "sha256": "a7b480743848dabccbea2a1f2314263ca070316eeed97aab4a6f09f171c80e5a",
+  "bytes": 738025,
   "source": {
-    "repository": "git@github.com:Funnelchat20/developers-portal.git",
-    "path": "generated/specs/funnelchat-completa.json",
-    "branch": "main",
-    "commit": "99928866cbac41d5b89d31d19773acfabdbbe5dd",
-    "commit_date": "2026-11-05T19:38:46Z",
-    "file_tracked_in_git": false,
+    "repository": null,
+    "path": null,
+    "branch": null,
+    "commit": null,
+    "commit_date": null,
+    "file_tracked_in_git": null,
     "tracked_files_clean": null,
-    "file_modified_at": "2026-11-05T19:41:33.011Z",
+    "file_modified_at": "2026-11-12T00:47:01.809Z",
+    "url": "https://developers-portal.funnelchat.app/specs/funnelchat.json",
     "declared": [
-      "repository",
-      "path",
-      "branch",
-      "commit",
-      "commit_date",
-      "file_tracked_in_git"
+      "url"
     ],
     "declared_note": "The fields in `declared` were given on the command line (`--source`), not read from git: the file was imported from outside a checkout of its repository."
   },
-  "imported_at": "2026-11-05T22:41:26.471Z",
+  "imported_at": "2026-11-12T00:50:43.723Z",
   "spec": {
     "openapi": "3.1.0",
     "title": "Funnelchat API",
     "version": "v0",
-    "paths": 218,
-    "operations": 265,
-    "webhooks": 29,
+    "paths": 209,
+    "operations": 253,
+    "webhooks": 57,
     "domains": [
       {
         "domain": "conversations",
-        "sha": "f2937a713",
-        "branch": "snapshot/f2937a71",
-        "snapshot_at": "2026-11-05T13:42:00-03:00",
-        "declared": true
+        "sha": null,
+        "branch": null,
+        "snapshot_at": null
       },
       {
         "domain": "communities",
-        "sha": "54643bbd",
-        "branch": "feat/grupos-sin-panel",
-        "snapshot_at": "2026-11-05T15:39:12-03:00",
-        "declared": true
+        "sha": null,
+        "branch": null,
+        "snapshot_at": null
       },
       {
         "domain": "accounts",
-        "sha": "558332bcf",
-        "branch": "snapshot/v1.5.97",
-        "snapshot_at": "2026-11-04T16:58:11-03:00",
-        "declared": true
+        "sha": null,
+        "branch": null,
+        "snapshot_at": null
       }
     ]
   }
