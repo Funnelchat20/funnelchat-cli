@@ -7,6 +7,7 @@ import type { Context as ContextType, GlobalOptions, Io } from './context.js';
 import { Context } from './context.js';
 import { ExitCode } from './errors.js';
 import { login, logout, profilesList, profilesUse, whoami } from './commands/account.js';
+import { addApiCommands } from './commands/api.js';
 import { collect, explicitOptions } from './commands/common.js';
 import { connect, CONNECT_TIMEOUT_SECONDS, type ConnectFlags } from './commands/connect.js';
 import { CONTACTS_FLAG_NAMES, contactsExport, type ContactsExportFlags } from './commands/contacts.js';
@@ -45,8 +46,9 @@ Environment variables:
   FUNNELCHAT_RATE        requests per second
   FUNNELCHAT_CONFIG_DIR  where to keep the configuration
 
-Only connect, send and groups follow change something in your account; every other command only reads.
-A write is sent once and never retried on its own.`;
+Only connect, send and groups follow change something in your account, and so do the api functions that
+are not a GET; every other command only reads. A write is sent once and never retried on its own. An api
+function that cannot be undone asks for confirmation first (--yes skips it).`;
 
 type Action = (ctx: ContextType, command: Command, ...args: unknown[]) => Promise<void> | void;
 
@@ -56,7 +58,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
   const program = new Command('funnelchat');
   program
     .description(
-      'Connect a WhatsApp number, send a message and watch it get read, and follow groups, through the Funnelchat public API. Also exports conversations and contacts, and checks numbers, templates and MACs.',
+      'Connect a WhatsApp number, send a message and watch it get read, and follow groups, through the Funnelchat public API. Also exports conversations and contacts, checks numbers, templates and MACs, and calls any function of the API (funnelchat api list).',
     )
     .version(VERSION, '-V, --version', 'Shows the version.')
     .helpOption('-h, --help', 'Shows the help.')
@@ -216,6 +218,9 @@ export async function run(argv: string[], io: Io): Promise<number> {
     .command('status')
     .description('How many MACs you have used in the period, the limit and how many are left.')
     .action(action((ctx) => macStatus(ctx)));
+
+  // --- api: every function of the spec ----------------------------------------------------------
+  addApiCommands(program, action);
 
   for (const command of program.commands) {
     command.exitOverride().configureOutput({ writeOut: (text) => io.stdout.write(text), writeErr: (text) => io.stderr.write(text) });

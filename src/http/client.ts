@@ -5,10 +5,10 @@
  * the same request shape, body parsing and per-attempt timeout. What changes for a CLI that pages
  * through whole accounts:
  *
- * - **Only reads are retried** (`GET`). A write (`POST`: a connect link, a message, following a group) is
- *   sent once: on a `429` the CLI says how long to wait, and when the outcome is unknown (the network, a
- *   timeout, a `5xx` other than `edge_misconfigured` and `gate_unavailable`) it says the write may have
- *   arrived, so nobody repeats it blindly.
+ * - **Only reads are retried** (`GET`). A write (any other method: a connect link, a message, following a
+ *   group, a `funnelchat api` call that is not a `GET`) is sent once: on a `429` the CLI says how long to
+ *   wait, and when the outcome is unknown (the network, a timeout, a `5xx` other than `edge_misconfigured`
+ *   and `gate_unavailable`) it says the write may have arrived, so nobody repeats it blindly.
  * - **`429` and `503` honour `Retry-After`**: the CLI waits exactly that, up to `maxWaitSeconds`. A longer
  *   wait (a daily cap can ask for hours) stops the command with exit code 5 and the time it resets.
  * - **`5xx` and network errors back off exponentially** (1 s, 2 s, 4 s… up to 30 s, with jitter).
@@ -21,7 +21,7 @@
  *   waiting does not change that. `502 origin_unreachable` is, like any `5xx` of a read.
  */
 import { ApiError, ConnectionError, ExitCode, InterruptedError, parseRetryAfter } from '../errors.js';
-import type { RouteInfo } from '../generated/routes.js';
+import type { HttpMethod } from '../generated/operations.js';
 import { USER_AGENT_PRODUCT, VERSION } from '../version.js';
 import { extractItems, followingPage, type PageQuery } from './pagination.js';
 import type { Pacer, Sleep } from './pacer.js';
@@ -52,6 +52,17 @@ export interface ClientOptions {
   /** Aborts every request (Ctrl+C). */
   signal?: AbortSignal;
   random?: () => number;
+}
+
+/**
+ * What the client needs of a route: a {@link import('../generated/routes.js').RouteInfo} of the named commands,
+ * or an operation of the catalog of `funnelchat api`. Only a `GET` is retried.
+ */
+export interface Endpoint {
+  readonly method: HttpMethod;
+  readonly path: string;
+  readonly domain: string | null;
+  readonly permission: string | null;
 }
 
 export interface RequestOptions {
@@ -91,24 +102,29 @@ export class ApiClient {
   }
 
   /** One `GET` of `route`, with retries. Returns the parsed body. */
-  async get<T = unknown>(route: RouteInfo, options: RequestOptions = {}): Promise<T> {
+  async get<T = unknown>(route: Endpoint, options: RequestOptions = {}): Promise<T> {
     return (await this.#send(route, options)) as T;
   }
 
   /** One write (`POST`) of `route` with a JSON `body`, sent once and never retried. Returns the parsed body. */
-  async post<T = unknown>(route: RouteInfo, options: RequestOptions = {}): Promise<T> {
+  async post<T = unknown>(route: Endpoint, options: RequestOptions = {}): Promise<T> {
     if (route.method !== 'POST') throw new TypeError(`${route.method} ${route.path} is not a write.`);
     return (await this.#send(route, options)) as T;
   }
 
+  /** One call of `route` with its own method: a `GET` is retried, any other method is a write, sent once. */
+  async request<T = unknown>(route: Endpoint, options: RequestOptions = {}): Promise<T> {
+    return (await this.#send(route, options)) as T;
+  }
+
   /** One page of a listing route, and the query of the page after it. */
-  async page<T = unknown>(route: RouteInfo, options: RequestOptions = {}): Promise<FetchedPage<T>> {
+  async page<T = unknown>(route: Endpoint, options: RequestOptions = {}): Promise<FetchedPage<T>> {
     const body = await this.#send(route, options);
     return { items: extractItems<T>(body), body, next: followingPage(body, options.query ?? {}) };
   }
 
   /** Every item of every page of a listing route. */
-  async *all<T = unknown>(route: RouteInfo, options: RequestOptions = {}): AsyncGenerator<T, void, undefined> {
+  async *all<T = unknown>(route: Endpoint, options: RequestOptions = {}): AsyncGenerator<T, void, undefined> {
     let query: Record<string, unknown> = { ...options.query };
     for (;;) {
       const page = await this.page<T>(route, { ...options, query });
@@ -118,7 +134,7 @@ export class ApiClient {
     }
   }
 
-  async #send(route: RouteInfo, options: RequestOptions): Promise<unknown> {
+  async #send(route: Endpoint, options: RequestOptions): Promise<unknown> {
     const opts = this.#options;
     const method = route.method;
     const pathname = interpolatePath(route.path, options.path);

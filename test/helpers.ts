@@ -248,6 +248,8 @@ export interface RunOptions {
   cwd: string;
   env?: Record<string, string | undefined>;
   stdin?: string;
+  /** Standard input is a terminal (a person can answer a question). */
+  tty?: boolean;
   signal?: AbortSignal;
   /** Called on every sleep, with the milliseconds. */
   onSleep?: (ms: number) => void;
@@ -262,7 +264,7 @@ export async function cli(args: string[], options: RunOptions): Promise<RunResul
   const io: Io = {
     stdout: { write: (chunk: string) => (stdout += chunk) },
     stderr: { write: (chunk: string) => (stderr += chunk) },
-    stdin: new FakeStdin(options.stdin ?? '') as unknown as Io['stdin'],
+    stdin: Object.assign(new FakeStdin(options.stdin ?? ''), { isTTY: options.tty === true }) as unknown as Io['stdin'],
     env: {
       HOME: options.cwd,
       FUNNELCHAT_CONFIG_DIR: join(options.cwd, '.config-funnelchat'),

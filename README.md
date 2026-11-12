@@ -21,7 +21,7 @@ Message 98765 to 5491122334455: read 14 s after sending.
 
 The phone does not need to be a contact yet: the send creates it. Send it to your own phone to see it arrive.
 
-**Handing it to an AI agent?** Agents are good at running commands. Two things help them: `funnelchat connect --no-wait` prints the link and ends at once (the agent shows it to you, and `funnelchat numbers list` says when the number is connected), and `--json` on any command gives one JSON document to read.
+**Handing it to an AI agent?** Agents are good at running commands. Three things help them: `funnelchat api list --json` gives them every function of the API to call ([Using it from an AI agent](#using-it-from-an-ai-agent)), `funnelchat connect --no-wait` prints the link and ends at once (the agent shows it to you, and `funnelchat numbers list` says when the number is connected), and `--json` on any command gives one JSON document to read.
 
 **Already have a number in Funnelchat?** Look first with `funnelchat numbers list`. If one is connected, use it: `send` takes it. If it is disconnected, `funnelchat connect --device <id>` reconnects that same number, without adding another. With none, connect yours by QR (`funnelchat connect`) or ask for a US number of Funnelchat on the official WhatsApp API (`funnelchat connect --us-number`).
 
@@ -33,11 +33,19 @@ funnelchat contacts export --output-dir ./my-contacts
 funnelchat conversations export --since 2026-10-01 --output-dir ./october
 ```
 
-> **Status: v0.** The public API is at v0 and may change. The CLI uses only what the API has in production; what gets added later is in [Coming next](#coming-next). The API reference is on the [developer portal](https://developers-portal.funnelchat.app/docs/).
+And it **calls any other function of the API**, from the spec it carries: `funnelchat api list` lists them by group, and `funnelchat api <function>` calls one.
+
+```bash
+funnelchat api list difusiones                          # the functions about broadcasts
+funnelchat api broadcast.index --perPage 50             # call one: the answer, as JSON
+```
+
+> **Status: v0.** The public API is at v0 and may change. The CLI uses only what the developer portal publishes, which is what an API key can use in production ([Where the spec comes from](#where-the-spec-comes-from)). The API reference is on the [developer portal](https://developers-portal.funnelchat.app/docs/).
 
 ## What it does and what it does not
 
-- **It writes only when you ask it to.** `connect` creates a connect link, `send` sends a message (and creates the contact if the phone is new) and `groups follow` imports a group into your account. Every other command only reads: each call it makes is a `GET`.
+- **It writes only when you ask it to.** `connect` creates a connect link, `send` sends a message (and creates the contact if the phone is new), `groups follow` imports a group into your account, and `funnelchat api` calls the function you name, which writes if it is not a `GET`. Every other command only reads: each call it makes is a `GET`.
+- **What cannot be undone asks first.** A function of `funnelchat api` that the spec marks as not undoable asks you to confirm it; without a terminal, it needs `--yes`.
 - **A write is sent once.** The CLI never repeats it on its own; if the network fails halfway, it says the write may have arrived, so you can check before repeating it.
 - **It exports by paging through the public API**, because the API has no server-side export. A large account takes a while: the CLI goes at a low pace on purpose, so it does not slow down your panel.
 - **It never stores or shows your key** anywhere except your configuration file, if you use `funnelchat login`.
@@ -87,6 +95,7 @@ The CLI uses an API key of your account: `<id>|fc_live_...`, complete, as the **
 | `groups follow` | `communities:operate` (Groups and campaigns → Manage groups); `accounts:read` without `--device` |
 | `contacts export`, `conversations export`, `templates`, `mac status` | `conversations:read` |
 | `whoami`, `numbers` | `accounts:read` |
+| `api <function>` | the one the function says: `funnelchat api <function> --help`, or `permission` in `funnelchat api list --json` (`api list` itself makes no call) |
 
 For the first use, a key with **WhatsApp numbers** (view and connect) and **Contacts and conversations** (view, edit and send) is enough.
 
@@ -402,6 +411,73 @@ MACs in the period: 120 of 1,000 (12 %) · 880 left
   state normal · cap enforcement on
 ```
 
+### `funnelchat api list [text...]`
+
+Every function of the API the CLI knows, which are those the developer portal publishes (the spec the CLI carries, `spec/funnelchat.json`): by category and group, as the portal shows them in [Más funciones](https://developers-portal.funnelchat.app/docs/mas-funciones/), with their method, their path and what they do. With words, only the functions that mention all of them in their name, path, group, summary or purpose; accents do not matter (`numero` finds «número»). It makes no call to the API.
+
+```bash
+funnelchat api list                  # all of them
+funnelchat api list difusiones       # only those that mention broadcasts
+funnelchat api list --json           # name, method, path, summary, purpose, group, permission, whether it asks to confirm…
+```
+
+```
+18 of 253 functions mention "difusiones". What one takes: `funnelchat api <function> --help`.
+
+Funciones de Funnelchat · https://developers-portal.funnelchat.app/docs/mas-funciones/funnelchat/
+  Automatizaciones
+    contactAutomation.pause      POST    /api/v1/contacts/{contact}/pause              Pausar las automatizaciones de un contacto
+  Difusiones
+    broadcast.index              GET     /api/v1/broadcasts                            Ver tus difusiones
+    broadcast.contacts           POST    /api/v1/broadcasts/contacts                   Buscar contactos para una difusión
+    …
+    broadcast.destroy            DELETE  /api/v1/broadcasts/{broadcast}                Borrar una difusión  (asks to confirm)
+    …
+```
+
+The names and texts are the spec's. The name is the `operationId` (`GET /api/v1/me`, the one without it, is `me.get`). The category is the one of its group (`x-fc-categoria`), with the title and the page the portal gives it (`x-fc-categorias`): Primer uso, Funciones de WhatsApp and Funciones de Funnelchat. The summary and purpose are in Spanish, as the portal writes them.
+
+### `funnelchat api <function>`
+
+Calls one function of `api list`. `funnelchat api <function> --help` says what it takes, its permission and, at the end, an example.
+
+```bash
+funnelchat api broadcast.index --perPage 50 --orderBy created_at --orderByMethod desc
+funnelchat api contact.show --contact 1001
+funnelchat api message.sendMessage --field device_id=3 --field phone=5491122334455 --field text="Hello from Funnelchat"
+funnelchat api tag.store --body @tag.json
+funnelchat api device.destroy --device 12               # asks before; with --yes it does not
+```
+
+- **Path and query parameters are options**, with the name the spec gives them: `--contact 1001`, `--perPage 50`. One that takes several values is repeated: `--status 1 --status 2`. The path's are required.
+- **The JSON body** goes field by field with `--field key=value` (repeatable), or whole with `--body`: inline JSON, `@file.json` or `@-` (standard input); `--field` adds to `--body`. Each value takes the type the spec gives its field: `device_id=3` is the number 3, `phone=5491122334455` is text, `note=true` a boolean, `[…]` and `{…}` are JSON, and repeating a field that takes a list makes the list (`--field mentions=7 --field mentions=8`). A field the body does not have stops the call before anything is sent.
+- **The answer is printed as JSON**, as the API returns it. An answer without a body (`204`) prints nothing.
+- **A listing pages** as the spec says: `--page` or `--cursor` for one page, or `--all` for every page, in a single JSON array (it asks for the largest page the spec allows).
+- **A write** (a function that is not a `GET`) is sent once and never retried, like the rest of the CLI's.
+- **What cannot be undone asks first.** A function the spec marks with `x-fc-destructive: true` (today: deleting a number, resetting its session or disconnecting it, emptying its message queue and deleting a custom domain), and a `DELETE` the spec does not mark either way, asks you to type `yes`. Without a terminal (a script, an agent) nothing is sent unless you add `--yes`: exit code `2`, `confirmation_required`.
+- **Errors** are like every command's: the exit code by the status, and the `X-Request-Id` to quote.
+
+The command has nothing written for any one function: it is generated from the spec. When the spec of the CLI changes, `funnelchat api` lists and calls what the new one has.
+
+## Using it from an AI agent
+
+Agents that work in a terminal are good at running commands, and `funnelchat` lets them use the whole API without code or an SDK:
+
+1. **Find the function**: `funnelchat api list <words> --json` gives each function's name, method, path, what it is for, its group, its permission and whether it asks for confirmation. Without words, all of them.
+2. **Learn what it takes**: `funnelchat api <function> --help` lists its options and body fields, with their types, the required ones and the allowed values, and ends with an example.
+3. **Call it**: `funnelchat --json api <function> --<parameter> <value> --field <key>=<value>`. The answer goes to stdout as JSON; an error is one JSON object on stderr, with `code`, `exit_code`, `hint` and `request_id`.
+4. **Confirm before what cannot be undone.** It is the rule an agent should follow anyway: ask the person before deleting or cancelling. Without `--yes`, the CLI refuses a function that cannot be undone and sends nothing (exit code `2`, `confirmation_required`); the agent shows the person what it is about to do, and adds `--yes` only after the person says yes.
+
+Do not paste the key into the agent's chat: run `funnelchat login` yourself, or set `FUNNELCHAT_API_KEY` in its environment, with a key that has only the permissions the agent needs. Instructions like these are enough for an agent:
+
+```
+To work with Funnelchat, use the `funnelchat` CLI; the key is already configured.
+- Find functions with `funnelchat api list <words> --json`, and read `funnelchat api <function> --help` before calling one.
+- Call them with `funnelchat --json api <function> …`.
+- A write is sent once: if it fails with a network error or a 5xx, check before repeating it.
+- Never add --yes without asking me first.
+```
+
 ## Exports
 
 > **Personal data.** What you export holds your contacts' personal data: names, phone numbers and messages. Keep it somewhere safe, do not share it unless you need to, and delete it when you no longer use it.
@@ -416,8 +492,8 @@ MACs in the period: 120 of 1,000 (12 %) · 880 left
 {
   "manifest_version": 1,
   "kind": "conversations",
-  "generator": { "name": "@funnelchat-hq/cli", "version": "0.3.0" },
-  "api": { "base_url": "https://api.funnelchat.com", "spec": { "commit": "99928866…", "sha256": "0ffaad2…" }, "routes": [ … ] },
+  "generator": { "name": "@funnelchat-hq/cli", "version": "0.4.0" },
+  "api": { "base_url": "https://api.funnelchat.com", "spec": { "source": "https://developers-portal.funnelchat.app/specs/funnelchat.json", "commit": null, "sha256": "a7b4807…" }, "routes": [ … ] },
   "started_at": "2026-10-16T12:00:00.000Z",
   "finished_at": "2026-10-16T12:41:10.000Z",
   "runs": 2,
@@ -465,9 +541,9 @@ funnelchat contacts export --output-dir ./contacts --resume
 
 - **Low pace:** at most 1 call per second, retries included. Change it with `--rate` (greater than 0 and up to 10; `0.5` is one every two seconds) or `FUNNELCHAT_RATE`. The API's per-minute limits are counted per user and your panel shares them: raise it carefully.
 - **`429` and `503`:** the CLI waits exactly what `Retry-After` says and retries. If it asks for more than 60 seconds (`--max-wait` changes that), it stops with code `5` and tells you when it resets.
-- **Server and network errors:** it retries with exponential backoff (1 s, 2 s, 4 s… up to 30 s), up to 4 times; also a `502 origin_unreachable` from the API's entry point. **It only retries reads**: a write (`connect`, `send`, `groups follow`) is sent once, and a `429` on it says how long to wait. A `500 edge_misconfigured` is not retried: it is a configuration problem on our side and waiting does not fix it.
+- **Server and network errors:** it retries with exponential backoff (1 s, 2 s, 4 s… up to 30 s), up to 4 times; also a `502 origin_unreachable` from the API's entry point. **It only retries reads**: a write (`connect`, `send`, `groups follow`, or an `api` function that is not a `GET`) is sent once, and a `429` on it says how long to wait. A `500 edge_misconfigured` is not retried: it is a configuration problem on our side and waiting does not fix it.
 - **Waiting without hurry:** `connect` lists your numbers every 5 seconds; `send` reads the message 1 second after each change and then less and less often, up to every 10 seconds.
-- **The daily cap:** accounts and communities allow up to 10,000 calls per day per key, each on its own; conversations has no daily cap. The contacts and conversations exports and the message of `send` use only conversations; `whoami`, `numbers`, `connect` and picking the number without `--device` use accounts; `groups` uses communities. If the cap is reached, the CLI stops with a clear message and the reset time, and the export can be resumed.
+- **The daily cap:** accounts and communities allow up to 10,000 calls per day per key, each on its own; conversations has no daily cap. The contacts and conversations exports and the message of `send` use only conversations; `whoami`, `numbers`, `connect` and picking the number without `--device` use accounts; `groups` uses communities. With `funnelchat api`, the area is the function's (`domain` in `funnelchat api list --json`). If the cap is reached, the CLI stops with a clear message and the reset time, and the export can be resumed.
 
 ## For scripts
 
@@ -489,7 +565,7 @@ The CLI asks the API for its messages in Spanish (`Accept-Language: es`), so the
 |---|---|
 | `0` | All good. |
 | `1` | An unexpected error. |
-| `2` | Wrong usage: an invalid option or value, or `--resume` with options different from the original ones. |
+| `2` | Wrong usage: an invalid option or value, or `--resume` with options different from the original ones; or an `api` function that cannot be undone, not confirmed (without a terminal, without `--yes`). |
 | `3` | No key, a key the API rejects (`401`) or a key without the permission the route needs (`403`). |
 | `4` | Not found in your account (`404`), or the route does not exist in the API (`404 route_not_found`). |
 | `5` | An API limit the CLI does not wait for on its own: the daily cap or a long `Retry-After`. It can be resumed. |
@@ -500,7 +576,7 @@ The CLI asks the API for its messages in Spanish (`Accept-Language: es`), so the
 
 ## What the API does not allow yet
 
-The CLI uses only routes that exist in the public spec (`spec/routes-used.json` lists them and the generation fails if one is missing). What we looked for and is not there:
+The named commands use only routes that exist in the public spec (`spec/routes-used.json` lists them and the generation fails if one is missing), and `funnelchat api` only the operations of that spec. What we looked for and is not there:
 
 - **A server-side export** (like other platforms have): that is why the CLI pages.
 - **A listing of every message of the account:** only the per-contact history exists, so the CLI walks the conversations and asks for each one's.
@@ -508,16 +584,16 @@ The CLI uses only routes that exist in the public spec (`spec/routes-used.json` 
 - **A filter by number on messages:** with `--device`, the CLI filters.
 - **Tags and fields in the contacts listing:** they are requested contact by contact.
 - **A filter of contacts by modification date,** for an incremental contacts export: there is only the creation date.
-- **Message metrics** (sent, delivered and read per day), neither for the account nor per template.
+- **Message metrics for the whole account** (sent, delivered and read per day). Per template they are there now: `funnelchat api message.templateMetrics --template <id>` (what Meta reports, day by day, up to 90 days).
 - **The key's own data** (its name and its permissions): `whoami` shows the account, not the key.
-
-## Coming next
-
-- **`templates metrics`**: what Meta reports for each template per day (sent, delivered, read, clicks and cost). It comes back to the CLI when the API has the route in production (`GET /api/v1/templates/{template}/metrics`, today in an undeployed change of conversations). It was removed on 2026-10-22 to stick to what the API already has.
 
 ## Where the spec comes from
 
-`spec/funnelchat.json` is the portal's full unified spec (developers-portal `main` @ `99928866`, deployed as v0.6.3 on 2026-11-05: `generated/specs/funnelchat-completa.json`, which carries every operation, not only the ones the portal shows), built from the snapshots of accounts `v1.5.97` (`558332bcf`), conversations `v1.19.21` (`f2937a713`) and communities `54643bbd` (the app code of `v2.35.7`). `spec/procedencia.json` says so, with the file's `sha256`. Every route, parameter and body field the CLI uses is in it: `spec/pending.json` stays empty.
+`spec/funnelchat.json` is the spec the developer portal publishes, <https://developers-portal.funnelchat.app/specs/funnelchat.json>, as portal v0.6.13 served it on 2026-11-11 (sha256 `a7b48074…`): the operations and events the portal shows, which per the portal are those an API key can use in production. It has 253 operations and 57 webhook events, in three categories: Primer uso, Funciones de WhatsApp and Funciones de Funnelchat. It does not date the areas it is built from (its `x-fc-sources` carry no commit), so `spec/procedencia.json` records the URL, as declared, and the file's `sha256`.
+
+Every route, parameter and body field the named commands use is in it, `GET /api/v1/me` of `login` and `whoami` included: `spec/pending.json` stays empty. The catalog of `funnelchat api` (`src/generated/operations.ts`) is generated from it, and from it alone.
+
+Before 0.4.0 the CLI carried the portal's full spec, which also had routes closed to keys. With the published one, 35 operations left the catalog and 23 came in. Among those that left: the legacy `webhooks/endpoints`, the logs of the numbers, `lead-score/events`, `extension-token`, the destinations of alerts and the campaign webhooks. Among those that came in: WhatsApp forms, bringing a number's templates from Meta and adding or removing tags in bulk. No named command used any of those that left.
 
 ## Development
 
@@ -530,7 +606,7 @@ npm run build
 
 To develop you need Node 20 or later (for the test tools); the CLI it builds runs on Node 18.
 
-**The tests** use simulated answers, with the same shapes as the API (pages by number and by cursor). They cover paging, resuming, `429`s, that the key never shows up in any output or any file, that no file is overwritten, the manifest's SHA-256, and the first use: `connect` waiting for the number (also a US number and a reconnection), and `send` watching the status until it is read.
+**The tests** use simulated answers, with the same shapes as the API (pages by number and by cursor). They cover paging, resuming, `429`s, that the key never shows up in any output or any file, that no file is overwritten, the manifest's SHA-256, and the first use: `connect` waiting for the number (also a US number and a reconnection), and `send` watching the status until it is read; and `funnelchat api`: listing, a read, a write with a body and the confirmation of what cannot be undone.
 
 **End to end against the sandbox.** With an already built checkout of [funnelchat-sandbox](https://github.com/Funnelchat20/funnelchat-sandbox) (`npm install && npm run build` in its folder), this test starts it in the same process, on a free port, and runs the CLI against it. It does not touch the sandbox's repository:
 
@@ -540,15 +616,17 @@ FUNNELCHAT_SANDBOX_DIR=../funnelchat-sandbox npm run test:e2e
 
 Without that variable, `npm test` skips it.
 
-**The spec.** It is copied and regenerated with a single script, which records where it came from in `spec/procedencia.json` and checks that every route, every parameter and every body field the CLI uses exists:
+**The spec.** It is copied and regenerated with a single script, which records where it came from in `spec/procedencia.json`, checks that every route, every parameter and every body field the named commands use exists, and writes the catalog of `funnelchat api` (`src/generated/operations.ts`: every operation, with its category, group, parameters, body fields and `x-fc-destructive`). A new spec is a new catalog, with no code to change:
 
 ```bash
-npm run generate -- --spec ../developers-portal/generated/specs/funnelchat-completa.json   # a new spec
-npm run generate                                                                           # regenerate
-npm run generate:check                                                                     # is it up to date?
+curl -sSfo funnelchat.json https://developers-portal.funnelchat.app/specs/funnelchat.json
+npm run generate -- --spec funnelchat.json --expect-sha256 <hex> \
+  --source url=https://developers-portal.funnelchat.app/specs/funnelchat.json   # a new spec
+npm run generate                                                               # regenerate
+npm run generate:check                                                         # is it up to date?
 ```
 
-The portal's full spec is a build output git ignores, so a copy of it says where it came from on the command line, as funnelchat-node does: `--expect-sha256 <hex>`, `--source repository=… --source branch=… --source commit=… --source path=…` and `--domain <area>=<sha>@<branch>@<snapshot_at>` for each area. `spec/procedencia.json` marks those fields as declared.
+A spec downloaded from the portal is not a file of a checkout, so its copy says where it came from on the command line: `--source url=…`, `--expect-sha256 <hex>` to refuse a file that is not the one announced, and, for a file of a checkout of another repository, `--source repository=… --source branch=… --source commit=… --source path=…` and `--domain <area>=<sha>@<branch>@<snapshot_at>` for each area. `spec/procedencia.json` marks those fields as declared. Nothing else is touched by hand: a new spec is a new catalog, with its categories and groups.
 
 `spec/pending.json` is for a route that is not in the snapshot yet; today it is empty. When a new snapshot has a route from there, the generation says it can be deleted.
 
