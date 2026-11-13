@@ -61,7 +61,7 @@ export interface OperationInfo {
 
 /** The spec the catalog was generated from (spec/procedencia.json). */
 export const OPERATIONS_SOURCE = {
-  "sha256": "3e5bc8ef01a2c74650a2581beb9bcfee4dd14252bec8ab52542fa3240ab60475",
+  "sha256": "7db2ead826697c80fd8feef3f0ea556b5374dd3d2cb5e02f3cfe4584af79e33c",
   "url": "https://developers-portal.funnelchat.app/specs/funnelchat.json",
   "commit": null,
   "operations": 253

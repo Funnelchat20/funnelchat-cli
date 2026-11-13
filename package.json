@@ -1,6 +1,6 @@
 {
   "name": "@funnelchat-hq/cli",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Funnelchat CLI: connect a WhatsApp number, send a message and watch it get read, follow groups, export conversations and contacts, and call any function of the public API",
   "license": "MIT",
   "author": {
