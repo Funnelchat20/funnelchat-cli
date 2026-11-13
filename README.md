@@ -589,7 +589,7 @@ The named commands use only routes that exist in the public spec (`spec/routes-u
 
 ## Where the spec comes from
 
-`spec/funnelchat.json` is the spec the developer portal publishes, <https://developers-portal.funnelchat.app/specs/funnelchat.json>, as portal v0.6.13 served it on 2026-11-11 (sha256 `a7b48074…`): the operations and events the portal shows, which per the portal are those an API key can use in production. It has 253 operations and 57 webhook events, in three categories: Primer uso, Funciones de WhatsApp and Funciones de Funnelchat. It does not date the areas it is built from (its `x-fc-sources` carry no commit), so `spec/procedencia.json` records the URL, as declared, and the file's `sha256`.
+`spec/funnelchat.json` is the spec the developer portal publishes, <https://developers-portal.funnelchat.app/specs/funnelchat.json>, as portal v0.6.14 served it on 2026-11-13 (sha256 `37c54a5a…`): the operations and events the portal shows, which per the portal are those an API key can use in production. It has 253 operations and 57 webhook events, in three categories: Primer uso, Funciones de WhatsApp and Funciones de Funnelchat. It does not date the areas it is built from (its `x-fc-sources` carry no commit), so `spec/procedencia.json` records the URL, as declared, and the file's `sha256`.
 
 Every route, parameter and body field the named commands use is in it, `GET /api/v1/me` of `login` and `whoami` included: `spec/pending.json` stays empty. The catalog of `funnelchat api` (`src/generated/operations.ts`) is generated from it, and from it alone.
 
