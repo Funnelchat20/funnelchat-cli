@@ -604,7 +604,7 @@ npm run lint && npm run typecheck
 npm run build
 ```
 
-To develop you need Node 20 or later (for the test tools); the CLI it builds runs on Node 18.
+To develop you need Node 20.19 or later (for the test tools); the CLI it builds runs on Node 18.
 
 **The tests** use simulated answers, with the same shapes as the API (pages by number and by cursor). They cover paging, resuming, `429`s, that the key never shows up in any output or any file, that no file is overwritten, the manifest's SHA-256, and the first use: `connect` waiting for the number (also a US number and a reconnection), and `send` watching the status until it is read; and `funnelchat api`: listing, a read, a write with a body and the confirmation of what cannot be undone.
 
@@ -630,7 +630,9 @@ A spec downloaded from the portal is not a file of a checkout, so its copy says 
 
 `spec/pending.json` is for a route that is not in the snapshot yet; today it is empty. When a new snapshot has a route from there, the generation says it can be deleted.
 
-**Publishing.** Push a `vX.Y.Z` tag on `main` that matches the version in `package.json`; GitHub Actions publishes it through npm Trusted Publishing (`.github/workflows/publish.yml`).
+**Checks.** Every pull request and every push to `main` runs lint, types, tests and build on Node 20.19, 22 and 24, and runs the built CLI on Node 18 (`.github/workflows/ci.yml`).
+
+**Publishing.** Push a `vX.Y.Z` tag on a commit of `main` that matches the version in `package.json`; GitHub Actions runs lint, types and tests and publishes it through npm Trusted Publishing (`.github/workflows/publish.yml`). A tag whose commit is not on `main` fails before publishing. A pre-release tag (`vX.Y.Z-rc.N`, `vX.Y.Z-beta.N`) is published under the `next` dist-tag (`npm install @funnelchat-hq/cli@next`), never as the default version.
 
 ## License
 
