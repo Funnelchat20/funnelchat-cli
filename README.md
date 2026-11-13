@@ -117,7 +117,7 @@ funnelchat login
 
 ```
 Key saved in the "default" profile (/Users/ana/.config/funnelchat/config.json, 0600 permissions).
-Account: Acme (hello@acme.example)
+Account: Acme
 ```
 
 Before saving it, `login` checks it against `GET /api/v1/me`: if the API rejects it, it is not saved. It also reads it from standard input (`funnelchat login < key.txt`). The CLI **never** takes the key from a command-line option, so it does not end up in your shell history.
@@ -211,7 +211,7 @@ Sends a text message to a phone and shows its status live, until it is `read`, i
 
 ```bash
 funnelchat send 5491122334455 "Hello from Funnelchat"
-funnelchat send +54 9 11 2233-4455 "Hello" --device 4 --timeout 300
+funnelchat send "+54 9 11 2233-4455" "Hello" --device 4 --timeout 300
 ```
 
 | Option | What it does |
@@ -219,7 +219,7 @@ funnelchat send +54 9 11 2233-4455 "Hello" --device 4 --timeout 300
 | `--device <id>` | The number it sends from. By default, the only connected number of your account; with several, the CLI asks for this. |
 | `--timeout <seconds>` | How long to watch the status. By default, 90. `0` sends and does not watch. |
 
-- **The phone**, with its country code. Spaces, dashes, dots, parentheses and a leading `+` are dropped. It does not need to be a contact yet: the send creates it (`POST /api/v1/message/send-message`, with `device_id`, `phone` and `text`).
+- **The phone**, with its country code. Spaces, dashes, dots, parentheses and a leading `+` are dropped; a phone with spaces goes in quotes, so that it reaches the CLI as one argument. It does not need to be a contact yet: the send creates it (`POST /api/v1/message/send-message`, with `device_id`, `phone` and `text`).
 - **The status:** `queued` (in line, not sent yet), `sent`, `delivered` and `read`, or `failed` with the reason. The CLI reads it with `GET /api/v1/contacts/{contact}/messages/{message}`, 1 second after each change and then less and less often (2 s, 4 s… up to 10 s). If the recipient turned read receipts off, it stays `delivered`.
 - **Exit codes:** `0` when it is read, or still on its way when `--timeout` ends; `6` when it failed (`code` `message_failed`, with the reason in `--json`). Ctrl+C stops watching (`130`); the message was already sent.
 - **On an official number** (WhatsApp Cloud API), free text only goes out within 24 hours of the contact's last message, so the first message to a new contact has to be a template: the API answers `422 window_closed` and nothing is sent. A number connected by QR has no such window.
@@ -270,13 +270,13 @@ funnelchat whoami
 ```
 
 ```
-Account: Acme (hello@acme.example)
+Account: Acme
   id 42 · role owner · time zone America/Argentina/Buenos_Aires · language es
 Key: from the FUNNELCHAT_API_KEY variable (not shown)
 Base URL: https://api.funnelchat.com
 ```
 
-It shows only these fields of `GET /api/v1/me`: id, name, email, role, time zone, language and the number and agent limits. That route also returns a session token: the CLI never shows it, not even with `--json`.
+It shows only these fields of `GET /api/v1/me`: id, name, role, time zone, language and the number and agent limits. With an API key that route brings neither the owner's email nor phone, nor a session token, and a field outside that list never shows, not even with `--json`.
 
 ### `funnelchat numbers list`
 
@@ -589,7 +589,7 @@ The named commands use only routes that exist in the public spec (`spec/routes-u
 
 ## Where the spec comes from
 
-`spec/funnelchat.json` is the spec the developer portal publishes, <https://developers-portal.funnelchat.app/specs/funnelchat.json>, as portal v0.6.13 served it on 2026-11-11 (sha256 `a7b48074…`): the operations and events the portal shows, which per the portal are those an API key can use in production. It has 253 operations and 57 webhook events, in three categories: Primer uso, Funciones de WhatsApp and Funciones de Funnelchat. It does not date the areas it is built from (its `x-fc-sources` carry no commit), so `spec/procedencia.json` records the URL, as declared, and the file's `sha256`.
+`spec/funnelchat.json` is the spec the developer portal publishes, <https://developers-portal.funnelchat.app/specs/funnelchat.json>, as portal v0.6.14 served it on 2026-11-13 (sha256 `37c54a5a…`): the operations and events the portal shows, which per the portal are those an API key can use in production. It has 253 operations and 57 webhook events, in three categories: Primer uso, Funciones de WhatsApp and Funciones de Funnelchat. It does not date the areas it is built from (its `x-fc-sources` carry no commit), so `spec/procedencia.json` records the URL, as declared, and the file's `sha256`.
 
 Every route, parameter and body field the named commands use is in it, `GET /api/v1/me` of `login` and `whoami` included: `spec/pending.json` stays empty. The catalog of `funnelchat api` (`src/generated/operations.ts`) is generated from it, and from it alone.
 
@@ -604,7 +604,7 @@ npm run lint && npm run typecheck
 npm run build
 ```
 
-To develop you need Node 20 or later (for the test tools); the CLI it builds runs on Node 18.
+To develop you need Node 20.19 or later (for the test tools); the CLI it builds runs on Node 18.
 
 **The tests** use simulated answers, with the same shapes as the API (pages by number and by cursor). They cover paging, resuming, `429`s, that the key never shows up in any output or any file, that no file is overwritten, the manifest's SHA-256, and the first use: `connect` waiting for the number (also a US number and a reconnection), and `send` watching the status until it is read; and `funnelchat api`: listing, a read, a write with a body and the confirmation of what cannot be undone.
 
@@ -630,7 +630,9 @@ A spec downloaded from the portal is not a file of a checkout, so its copy says 
 
 `spec/pending.json` is for a route that is not in the snapshot yet; today it is empty. When a new snapshot has a route from there, the generation says it can be deleted.
 
-**Publishing.** Push a `vX.Y.Z` tag on `main` that matches the version in `package.json`; GitHub Actions publishes it through npm Trusted Publishing (`.github/workflows/publish.yml`).
+**Checks.** Every pull request and every push to `main` runs lint, types, tests and build on Node 20.19, 22 and 24, and runs the built CLI on Node 18 (`.github/workflows/ci.yml`).
+
+**Publishing.** Push a `vX.Y.Z` tag on a commit of `main` that matches the version in `package.json`; GitHub Actions runs lint, types and tests and publishes it through npm Trusted Publishing (`.github/workflows/publish.yml`). A tag whose commit is not on `main` fails before publishing. A pre-release tag (`vX.Y.Z-rc.N`, `vX.Y.Z-beta.N`) is published under the `next` dist-tag (`npm install @funnelchat-hq/cli@next`), never as the default version.
 
 ## License
 

@@ -121,7 +121,8 @@ export class FakeAccount {
     let m: RegExpExecArray | null;
 
     if (p === '/api/v1/me') {
-      return { body: { id: '42', name: 'Cuenta de prueba', email: 'dueno@example.com', role: 'owner', timezone: 'America/Argentina/Buenos_Aires', locale: 'es', token: 'session-token-must-never-show', plan: [] } };
+      // With a key, /me brings no email, phone or token; the token stays here to prove that it would never show.
+      return { body: { id: '42', name: 'Cuenta de prueba', role: 'owner', timezone: 'America/Argentina/Buenos_Aires', locale: 'es', token: 'session-token-must-never-show', plan: [] } };
     }
     if (p === '/api/v1/devices') {
       return this.paged(

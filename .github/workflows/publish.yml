@@ -1,6 +1,10 @@
 # Publishes the package to npm when a vX.Y.Z tag is pushed, through npm Trusted Publishing:
 # npm accepts the publish only from this repository and this workflow, by OIDC, with no token.
 #
+# Before publishing, it fails unless the tag matches package.json and its commit is on main, and it runs
+# lint, types and tests. A pre-release (vX.Y.Z-rc.N, vX.Y.Z-beta.N…) goes to the `next` dist-tag, never to
+# `latest`, the one `npm install` gives by default.
+#
 # ONE-TIME SETUP: on npmjs.com, the package's Settings → Trusted Publisher → GitHub Actions,
 # with organization Funnelchat20, repository funnelchat-cli, workflow publish.yml and no environment.
 #
@@ -27,8 +31,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # The whole history: the tag's commit is checked against main.
+          fetch-depth: 0
 
-      # Developing and building need Node 20 or later (see README); 22 is the maintained LTS,
+      # Developing and building need Node 20.19 or later (see README); 22 is the maintained LTS,
       # and npm 11 needs ^20.17.0 || >=22.9.0.
       - uses: actions/setup-node@v5
         with:
@@ -74,6 +81,29 @@ jobs:
             exit 1
           fi
 
+      - name: Check that the tag's commit is on main
+        if: github.event_name != 'workflow_dispatch'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          git fetch --no-tags --quiet origin +refs/heads/main:refs/remotes/origin/main
+          commit="$(git rev-parse 'HEAD^{commit}')"
+          if ! git merge-base --is-ancestor "${commit}" origin/main; then
+            echo "::error::Tag ${TAG} points to ${commit}, which is not on main: only a commit of main is published"
+            exit 1
+          fi
+
+      # A version with a pre-release part (0.5.0-rc.1, 0.5.0-beta.2) is never `latest`.
+      - name: Choose the npm dist-tag
+        id: dist
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          case "${version}" in
+            *-*) echo "tag=next" >> "${GITHUB_OUTPUT}" ;;
+            *) echo "tag=latest" >> "${GITHUB_OUTPUT}" ;;
+          esac
+
       - name: Skip a version that is already on npm
         id: published
         if: github.event_name != 'workflow_dispatch'
@@ -88,6 +118,15 @@ jobs:
       - if: github.event_name != 'workflow_dispatch' && steps.published.outputs.already != 'true'
         run: npm ci
 
+      - name: Lint, types and tests
+        if: github.event_name != 'workflow_dispatch' && steps.published.outputs.already != 'true'
+        run: |
+          npm run lint
+          npm run typecheck
+          npm test
+
       # prepack builds dist/ before packing.
       - if: github.event_name != 'workflow_dispatch' && steps.published.outputs.already != 'true'
-        run: npm publish --provenance --access public
+        env:
+          DIST_TAG: ${{ steps.dist.outputs.tag }}
+        run: npm publish --provenance --access public --tag "${DIST_TAG}"
