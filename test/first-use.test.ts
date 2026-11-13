@@ -1,4 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { normalizePhone } from '../src/commands/send.js';
 import { cli, FakeAccount, tempDir } from './helpers.js';
 
 const LINK = 'https://app.funnelchat.com/connect/TestOnlyLinkToken';
@@ -108,5 +110,16 @@ describe('first use', () => {
     expect(error).toMatchObject({ code: 'window_closed', status: 422, exit_code: 6 });
     expect(error.message).toContain('within 24 hours');
     expect(error.hint).toContain('Nothing was sent.');
+  });
+
+  it('every send example of the README gives the CLI a phone it accepts', () => {
+    const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+    const examples = readme.split('\n').filter((line) => line.startsWith('funnelchat send '));
+    expect(examples.length).toBeGreaterThan(0);
+    for (const line of examples) {
+      // The words the shell passes to the CLI: quotes keep a phone with spaces in one argument.
+      const words = [...line.replace(/\s+#.*$/, '').matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]);
+      expect(() => normalizePhone(words[2] ?? ''), line).not.toThrow();
+    }
   });
 });

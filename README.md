@@ -211,7 +211,7 @@ Sends a text message to a phone and shows its status live, until it is `read`, i
 
 ```bash
 funnelchat send 5491122334455 "Hello from Funnelchat"
-funnelchat send +54 9 11 2233-4455 "Hello" --device 4 --timeout 300
+funnelchat send "+54 9 11 2233-4455" "Hello" --device 4 --timeout 300
 ```
 
 | Option | What it does |
@@ -219,7 +219,7 @@ funnelchat send +54 9 11 2233-4455 "Hello" --device 4 --timeout 300
 | `--device <id>` | The number it sends from. By default, the only connected number of your account; with several, the CLI asks for this. |
 | `--timeout <seconds>` | How long to watch the status. By default, 90. `0` sends and does not watch. |
 
-- **The phone**, with its country code. Spaces, dashes, dots, parentheses and a leading `+` are dropped. It does not need to be a contact yet: the send creates it (`POST /api/v1/message/send-message`, with `device_id`, `phone` and `text`).
+- **The phone**, with its country code. Spaces, dashes, dots, parentheses and a leading `+` are dropped; a phone with spaces goes in quotes, so that it reaches the CLI as one argument. It does not need to be a contact yet: the send creates it (`POST /api/v1/message/send-message`, with `device_id`, `phone` and `text`).
 - **The status:** `queued` (in line, not sent yet), `sent`, `delivered` and `read`, or `failed` with the reason. The CLI reads it with `GET /api/v1/contacts/{contact}/messages/{message}`, 1 second after each change and then less and less often (2 s, 4 s… up to 10 s). If the recipient turned read receipts off, it stays `delivered`.
 - **Exit codes:** `0` when it is read, or still on its way when `--timeout` ends; `6` when it failed (`code` `message_failed`, with the reason in `--json`). Ctrl+C stops watching (`130`); the message was already sent.
 - **On an official number** (WhatsApp Cloud API), free text only goes out within 24 hours of the contact's last message, so the first message to a new contact has to be a template: the API answers `422 window_closed` and nothing is sent. A number connected by QR has no such window.
