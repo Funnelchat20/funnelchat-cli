@@ -17,8 +17,9 @@
  * - **`X-Request-Id`**: every answer of the API carries one, errors included (portal, autenticacion.md,
  *   from developers-portal main @ c8ddcbe; api-edge v0.3.0 and platform-gate 0.8 send it). `--verbose`
  *   shows it on each answer and every {@link ApiError} carries it, so an error can be cited to support.
- * - **`500 edge_misconfigured` is not retried**: the API's entry is not configured to reach the domain, and
- *   waiting does not change that. `502 origin_unreachable` is, like any `5xx` of a read.
+ * - **`500 edge_misconfigured` and `500 gate_misconfigured` are not retried**: the API's entry, or its gate
+ *   in the area, is not configured for the route, and waiting does not change that. `502 origin_unreachable`
+ *   and `502 provider_error` are, like any `5xx` of a read.
  */
 import { ApiError, ConnectionError, ExitCode, InterruptedError, parseRetryAfter } from '../errors.js';
 import type { HttpMethod } from '../generated/operations.js';
@@ -28,6 +29,8 @@ import type { Pacer, Sleep } from './pacer.js';
 import { interpolatePath, joinUrl, serializeQuery } from './url.js';
 
 export const DEFAULT_TIMEOUT_MS = 30_000;
+/** `5xx` codes that are a configuration problem on Funnelchat's side: retrying does not fix them. */
+const NOT_RETRIED = new Set(['edge_misconfigured', 'gate_misconfigured']);
 export const DEFAULT_MAX_RETRIES = 4;
 /** The longest `Retry-After` the CLI waits for by itself. */
 export const DEFAULT_MAX_WAIT_SECONDS = 60;
@@ -192,7 +195,7 @@ export class ApiClient {
         requestId,
       });
 
-      const retryable = response.status === 429 || (response.status >= 500 && error.apiCode !== 'edge_misconfigured');
+      const retryable = response.status === 429 || (response.status >= 500 && !NOT_RETRIED.has(error.apiCode ?? ''));
       if (!retriesAllowed && response.status >= 500 && error.apiCode !== 'edge_misconfigured' && error.apiCode !== 'gate_unavailable') {
         error.hint = [WRITE_MAY_HAVE_ARRIVED, error.hint].filter(Boolean).join('\n');
       }

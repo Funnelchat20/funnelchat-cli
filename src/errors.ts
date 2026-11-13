@@ -136,17 +136,31 @@ function withRequestId(hint: string | undefined, requestId: string | undefined):
 /**
  * The stable `error` codes the commands can get, in plain words (the API's own `message` is in Spanish and
  * changes by area). The exit code still comes from the status. `payment_required` is declared by the spec
- * since portal v0.6.15 for most routes, those of `send` and `connect` included. The others, all in production:
- * conversations v1.19.21 (sends of a key), accounts v1.5.97 (connect links) and communities v2.35.7
- * (following a group), as the full unified spec of developers-portal 99928866 and funnelchat-node
+ * since portal v0.6.15 for most routes, those of `send` and `connect` included; the codes under "numbers,
+ * Meta and the plan" and `gate_misconfigured`, since v0.6.16, mostly on routes only `funnelchat api` calls.
+ * With `keepApiMessage`, the API's `message` follows: it says what the code alone does not (Meta's reason).
+ * The others, all in production: conversations v1.19.21 (sends of a key), accounts v1.5.97 (connect links)
+ * and communities v2.35.7 (following a group), as the full unified spec of developers-portal 99928866 and funnelchat-node
  * feat/seguir-un-grupo @ f913feb (src/core/error-codes.ts) list them.
  */
-export const KNOWN_API_ERRORS: Readonly<Record<string, { message: string; hint?: string }>> = {
+export const KNOWN_API_ERRORS: Readonly<Record<string, { message: string; hint?: string; keepApiMessage?: true }>> = {
   // any route
   payment_required: {
     message: 'The account\'s payment is overdue: the API does not take calls from it until it is settled.',
     hint: 'Settle it in the Funnelchat panel. Retrying does not help.',
   },
+  gate_misconfigured: {
+    message: 'The API is not available right now: its gate is not configured for this route.',
+    hint: 'It is a problem on Funnelchat\'s side: please report it.',
+  },
+  // numbers, Meta and the plan
+  device_not_meta: { message: 'That number is not an official one (WhatsApp Cloud API), and this needs one.', hint: 'See your numbers with `funnelchat numbers list`.' },
+  device_not_ready: { message: 'That official number is not connected to Meta yet.', hint: 'See it with `funnelchat numbers list`.' },
+  unsupported_provider: { message: 'That number does not allow this change: it depends on how it is connected.', hint: 'See its connection with `funnelchat numbers list`.' },
+  meta_error: { message: 'Meta rejected the request', keepApiMessage: true },
+  provider_error: { message: 'The WhatsApp provider did not answer.', hint: 'Try again in a few minutes.' },
+  plan_cap_reached: { message: 'Your plan\'s cap for this was reached: nothing was done', hint: 'Change the plan from the panel.', keepApiMessage: true },
+  webhooks_limit_reached: { message: 'The workspace already has 50 webhook subscriptions, the most it can have, whatever their status.', hint: 'Delete one to create another.' },
   // send
   window_closed: {
     message: 'WhatsApp does not let this number send free text to this contact now: on an official number, free text only goes out within 24 hours of the contact\'s last message, so the first message to a new contact has to be a template.',
@@ -218,7 +232,8 @@ function describe(
   }
   const known = apiCode !== undefined && Object.hasOwn(KNOWN_API_ERRORS, apiCode) ? KNOWN_API_ERRORS[apiCode] : undefined;
   if (known) {
-    return { exitCode: exitCodeOf(status), message: `${known.message} (${status} ${apiCode} on ${where})`, ...(known.hint ? { hint: known.hint } : {}) };
+    const message = `${known.message} (${status} ${apiCode} on ${where})${known.keepApiMessage ? said : ''}`;
+    return { exitCode: exitCodeOf(status), message, ...(known.hint ? { hint: known.hint } : {}) };
   }
   if (status === 403) {
     const permission = init.permission ? ` This route needs \`${init.permission}\`.` : '';

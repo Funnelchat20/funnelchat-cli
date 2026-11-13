@@ -43,6 +43,16 @@ describe("the API entry's own errors", () => {
     expect(result.stderr).toContain(requestIdOf(1));
   });
 
+  it('500 gate_misconfigured stops at once too, and reads plainly', async () => {
+    const account = new FakeAccount().hook(() => ({ status: 500, body: { error: 'gate_misconfigured', message: 'Error de configuración.' } }));
+    const { fetch, calls } = account.fetch();
+    const result = await cli(['mac', 'status'], { fetch, cwd: tempDir() });
+    expect(result.code).toBe(6);
+    expect(calls).toHaveLength(1);
+    expect(result.stderr).toContain('its gate is not configured for this route. (500 gate_misconfigured');
+    expect(result.stderr).toContain('please report it');
+  });
+
   it('502 origin_unreachable is retried with backoff, like any 5xx of a read', async () => {
     let n = 0;
     const account = new FakeAccount().hook((r) =>
@@ -68,6 +78,13 @@ describe("the API entry's own errors", () => {
     expect(result.code).toBe(4);
     expect(result.stderr).toContain('The route does not exist in the API');
     expect(result.stderr).not.toContain('Not found in your account');
+  });
+
+  it('meta_error keeps Meta\'s reason, which the code alone does not say', async () => {
+    const account = new FakeAccount().hook(() => ({ status: 400, body: { error: 'meta_error', message: 'El nombre de usuario ya está tomado.' } }));
+    const result = await cli(['mac', 'status'], { fetch: account.fetch().fetch, cwd: tempDir() });
+    expect(result.code).toBe(6);
+    expect(result.stderr).toContain('Meta rejected the request (400 meta_error on GET /api/v1/mac/status): El nombre de usuario ya está tomado.');
   });
 
   it('402 payment_required reads plainly and is not retried', async () => {
