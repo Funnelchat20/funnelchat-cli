@@ -8,9 +8,9 @@
  *   node scripts/generate.mjs --check         regenerate in memory and fail if src/generated/* differs
  *
  * With --spec, when the file is not inside a checkout of the repository it was built from (the spec the
- * portal publishes, downloaded from its URL), say where it came from: `--source key=value` (url, repository,
- * path, branch, commit, commit_date, file_tracked_in_git), recorded in spec/procedencia.json as declared, not
- * read from git; `--domain <domain>=<sha>@<branch>@<snapshot_at>` for the snapshot of an area the spec does
+ * portal publishes, downloaded from its URL), say where it came from: `--source key=value` (url, portal_version,
+ * repository, path, branch, commit, commit_date, file_tracked_in_git), recorded in spec/procedencia.json as
+ * declared, not read from git; `--domain <domain>=<sha>@<branch>@<snapshot_at>` for the snapshot of an area the spec does
  * not date itself (`x-fc-sources` without `sha`); and `--expect-sha256 <hex>` to refuse a file that is not
  * the one announced.
  *
@@ -69,8 +69,11 @@ function parseArgs(argv) {
   return args;
 }
 
-/** `url` is where the portal publishes it: https://developers-portal.funnelchat.app/specs/funnelchat.json. */
-const DECLARABLE_SOURCE_KEYS = new Set(['url', 'repository', 'path', 'branch', 'commit', 'commit_date', 'file_tracked_in_git']);
+/**
+ * `url` is where the portal publishes it: https://developers-portal.funnelchat.app/specs/funnelchat.json;
+ * `portal_version`, the version of the portal that serves it (v0.6.15): the spec does not carry it.
+ */
+const DECLARABLE_SOURCE_KEYS = new Set(['url', 'portal_version', 'repository', 'path', 'branch', 'commit', 'commit_date', 'file_tracked_in_git']);
 
 /** `--source commit=99928866…`: one field of where the spec came from, declared by whoever imports it. */
 function addSource(source, pair) {

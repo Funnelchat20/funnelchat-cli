@@ -69,4 +69,16 @@ describe("the API entry's own errors", () => {
     expect(result.stderr).toContain('The route does not exist in the API');
     expect(result.stderr).not.toContain('Not found in your account');
   });
+
+  it('402 payment_required reads plainly and is not retried', async () => {
+    const account = new FakeAccount().hook(() => ({ status: 402, body: { error: 'payment_required', message: 'El pago de la cuenta está vencido.' } }));
+    const { fetch, calls } = account.fetch();
+    const result = await cli(['--json', 'templates', 'list'], { fetch, cwd: tempDir() });
+    expect(result.code).toBe(6);
+    expect(calls).toHaveLength(1);
+    const error = JSON.parse(result.stderr).error;
+    expect(error).toMatchObject({ code: 'payment_required', status: 402, exit_code: 6 });
+    expect(error.message).toContain('payment is overdue');
+    expect(error.hint).toContain('Funnelchat panel');
+  });
 });

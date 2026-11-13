@@ -13,11 +13,14 @@ export const ExitCode = {
   USAGE: 2,
   /** No key, a key the API rejects (`401`), or a key without the permission the route needs (`403`). */
   AUTH: 3,
-  /** The resource does not exist in the account (`404`). */
+  /** The resource does not exist in the account, or belongs to another one: `404 not_found` for both. */
   NOT_FOUND: 4,
   /** A limit the CLI does not wait for: the daily cap or a `Retry-After` too long. Resumable. */
   RATE_LIMITED: 5,
-  /** The API failed (`5xx`, `422`…) or could not be reached, after the retries; or a sent message failed. */
+  /**
+   * The API failed (`5xx`, `422`…) or could not be reached, after the retries; the account's payment is
+   * overdue (`402 payment_required`); or a sent message failed.
+   */
   API: 6,
   /** The output already exists: the CLI never overwrites a file. */
   EXISTS: 7,
@@ -131,13 +134,19 @@ function withRequestId(hint: string | undefined, requestId: string | undefined):
 }
 
 /**
- * The stable `error` codes the commands that write can get, in plain words (the API's own `message` is in
- * Spanish and changes by area). The exit code still comes from the status. Sources, all in production:
+ * The stable `error` codes the commands can get, in plain words (the API's own `message` is in Spanish and
+ * changes by area). The exit code still comes from the status. `payment_required` is declared by the spec
+ * since portal v0.6.15 for most routes, those of `send` and `connect` included. The others, all in production:
  * conversations v1.19.21 (sends of a key), accounts v1.5.97 (connect links) and communities v2.35.7
  * (following a group), as the full unified spec of developers-portal 99928866 and funnelchat-node
  * feat/seguir-un-grupo @ f913feb (src/core/error-codes.ts) list them.
  */
 export const KNOWN_API_ERRORS: Readonly<Record<string, { message: string; hint?: string }>> = {
+  // any route
+  payment_required: {
+    message: 'The account\'s payment is overdue: the API does not take calls from it until it is settled.',
+    hint: 'Settle it in the Funnelchat panel. Retrying does not help.',
+  },
   // send
   window_closed: {
     message: 'WhatsApp does not let this number send free text to this contact now: on an official number, free text only goes out within 24 hours of the contact\'s last message, so the first message to a new contact has to be a template.',
