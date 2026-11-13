@@ -117,7 +117,7 @@ funnelchat login
 
 ```
 Key saved in the "default" profile (/Users/ana/.config/funnelchat/config.json, 0600 permissions).
-Account: Acme (hello@acme.example)
+Account: Acme
 ```
 
 Before saving it, `login` checks it against `GET /api/v1/me`: if the API rejects it, it is not saved. It also reads it from standard input (`funnelchat login < key.txt`). The CLI **never** takes the key from a command-line option, so it does not end up in your shell history.
@@ -270,13 +270,13 @@ funnelchat whoami
 ```
 
 ```
-Account: Acme (hello@acme.example)
+Account: Acme
   id 42 · role owner · time zone America/Argentina/Buenos_Aires · language es
 Key: from the FUNNELCHAT_API_KEY variable (not shown)
 Base URL: https://api.funnelchat.com
 ```
 
-It shows only these fields of `GET /api/v1/me`: id, name, email, role, time zone, language and the number and agent limits. That route also returns a session token: the CLI never shows it, not even with `--json`.
+It shows only these fields of `GET /api/v1/me`: id, name, role, time zone, language and the number and agent limits. With an API key that route brings neither the owner's email nor phone, nor a session token, and a field outside that list never shows, not even with `--json`.
 
 ### `funnelchat numbers list`
 

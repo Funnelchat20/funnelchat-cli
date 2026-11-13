@@ -11,8 +11,12 @@ import { activeProfileName, checkKeyShape, PRODUCTION_URL, resolveBaseUrl } from
 import { saveConfig } from '../config/store.js';
 import { table } from '../output.js';
 
-/** The account fields `whoami` shows. `/me` also returns a session `token`: it is never shown. */
-const ACCOUNT_FIELDS = ['id', 'name', 'email', 'role', 'timezone', 'locale', 'effective_business_numbers_limit', 'effective_agents_limit'] as const;
+/**
+ * The account fields `whoami` shows. With an API key, `/me` brings neither the owner's email nor phone,
+ * nor a session `token` (its description in the spec says so); a field outside this list is never shown,
+ * even if `/me` returned it.
+ */
+const ACCOUNT_FIELDS = ['id', 'name', 'role', 'timezone', 'locale', 'effective_business_numbers_limit', 'effective_agents_limit'] as const;
 
 export function accountSummary(me: unknown): Record<string, unknown> {
   const record = isRecord(me) && isRecord(me.data) && !('id' in me) ? me.data : me;
@@ -60,7 +64,7 @@ export async function login(ctx: Context, flags: LoginFlags): Promise<void> {
 
   ctx.out.result({ profile, base_url: baseUrl, config_file: path, verified, account }, () => [
     `Key saved in the "${profile}" profile (${path}, 0600 permissions).`,
-    ...(account ? [`Account: ${String(account.name ?? '-')} (${String(account.email ?? '-')})`] : []),
+    ...(account ? [`Account: ${String(account.name ?? '-')}`] : []),
     ...(baseUrl !== PRODUCTION_URL ? [`Base URL: ${baseUrl}`] : []),
     ...(!verified ? ['The key was not checked against the API (--no-verify).'] : []),
   ]);
@@ -84,7 +88,7 @@ export async function whoami(ctx: Context): Promise<void> {
   const account = accountSummary(await ctx.client().get(routes.me));
   const keySource = credentials.keySource === 'env' ? 'from the FUNNELCHAT_API_KEY variable' : `from the "${credentials.profile}" profile`;
   ctx.out.result({ account, key_source: credentials.keySource, profile: credentials.keySource === 'profile' ? credentials.profile : null, base_url: credentials.baseUrl }, () => [
-    `Account: ${String(account.name ?? '-')} (${String(account.email ?? '-')})`,
+    `Account: ${String(account.name ?? '-')}`,
     `  id ${String(account.id ?? '-')} · role ${String(account.role ?? '-')} · time zone ${String(account.timezone ?? '-')} · language ${String(account.locale ?? '-')}`,
     `Key: ${keySource} (not shown)`,
     `Base URL: ${credentials.baseUrl}`,

@@ -10,13 +10,13 @@ const run = (args: string[], account = new FakeAccount()) => {
 };
 
 describe('whoami', () => {
-  it('shows the account from a whitelist of fields, never the session token of /me', async () => {
+  it('shows what /me returns to a key, from a whitelist of fields: no email, never the session token', async () => {
     const human = await run(['whoami']);
     expect(human.code).toBe(0);
-    expect(human.stdout).toContain('Cuenta de prueba (dueno@example.com)');
+    expect(human.stdout).toMatch(/^Account: Cuenta de prueba$/m);
     expect(human.stdout).toContain('from the FUNNELCHAT_API_KEY variable');
     const json = JSON.parse((await run(['--json', 'whoami'])).stdout);
-    expect(Object.keys(json.account).sort()).toEqual(['email', 'id', 'locale', 'name', 'role', 'timezone']);
+    expect(Object.keys(json.account).sort()).toEqual(['id', 'locale', 'name', 'role', 'timezone']);
     expect(json.key_source).toBe('env');
   });
 });
