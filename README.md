@@ -557,6 +557,8 @@ funnelchat contacts export --output-dir ./contacts --resume
 
 **Other global options:** `-q`/`--quiet` (no progress), `-v`/`--verbose` (every request to the API, with method, URL, status, timing and `X-Request-Id`; never the key).
 
+**The API's errors.** Every error of the API carries a stable code in `error` (the CLI's `code` and, with `--json`, `api_error`) and a text in `message`: `422 validation_failed` with the fields in `errors`, `404 not_found` (also for what belongs to another account: the API does not say whether it exists), `402 payment_required` when the account's payment is overdue (it is not retried: settle it in the panel), and `429 rate_limited` with `Retry-After`.
+
 The CLI asks the API for its messages in Spanish (`Accept-Language: es`), so the `message` the API returns, which the CLI appends to some errors, comes in Spanish. Decide by the exit code and by `code`, not by the text.
 
 ### Exit codes
@@ -567,9 +569,9 @@ The CLI asks the API for its messages in Spanish (`Accept-Language: es`), so the
 | `1` | An unexpected error. |
 | `2` | Wrong usage: an invalid option or value, or `--resume` with options different from the original ones; or an `api` function that cannot be undone, not confirmed (without a terminal, without `--yes`). |
 | `3` | No key, a key the API rejects (`401`) or a key without the permission the route needs (`403`). |
-| `4` | Not found in your account (`404`), or the route does not exist in the API (`404 route_not_found`). |
+| `4` | Not found in your account, or it belongs to another account (`404 not_found`); or the route does not exist in the API (`404 route_not_found`). |
 | `5` | An API limit the CLI does not wait for on its own: the daily cap or a long `Retry-After`. It can be resumed. |
-| `6` | The API failed (`5xx`, `422`…) or could not be reached, after the retries; or the message `send` watched failed. |
+| `6` | The API failed (`5xx`, `422`…) or could not be reached, after the retries; the account's payment is overdue (`402 payment_required`); or the message `send` watched failed. |
 | `7` | The output already exists: the CLI never overwrites a file. |
 | `8` | `connect` waited `--timeout` and no number connected. |
 | `130` | Interrupted with Ctrl+C. An export can be resumed. |
@@ -589,7 +591,7 @@ The named commands use only routes that exist in the public spec (`spec/routes-u
 
 ## Where the spec comes from
 
-`spec/funnelchat.json` is the spec the developer portal publishes, <https://developers-portal.funnelchat.app/specs/funnelchat.json>, as portal v0.6.14 served it on 2026-11-13 (sha256 `37c54a5a…`): the operations and events the portal shows, which per the portal are those an API key can use in production. It has 253 operations and 57 webhook events, in three categories: Primer uso, Funciones de WhatsApp and Funciones de Funnelchat. It does not date the areas it is built from (its `x-fc-sources` carry no commit), so `spec/procedencia.json` records the URL, as declared, and the file's `sha256`.
+`spec/funnelchat.json` is the spec the developer portal publishes, <https://developers-portal.funnelchat.app/specs/funnelchat.json>, that of portal v0.6.15 (sha256 `3e5bc8ef…`): the operations and events the portal shows, which per the portal are those an API key can use in production. It has 253 operations and 57 webhook events, in three categories: Primer uso, Funciones de WhatsApp and Funciones de Funnelchat. It does not date the areas it is built from (its `x-fc-sources` carry no commit), so `spec/procedencia.json` records the URL and the portal's version, as declared, and the file's `sha256`. Since v0.6.15 it also declares, for each route, the errors of the common format (see [For scripts](#for-scripts)).
 
 Every route, parameter and body field the named commands use is in it, `GET /api/v1/me` of `login` and `whoami` included: `spec/pending.json` stays empty. The catalog of `funnelchat api` (`src/generated/operations.ts`) is generated from it, and from it alone.
 
@@ -621,12 +623,13 @@ Without that variable, `npm test` skips it.
 ```bash
 curl -sSfo funnelchat.json https://developers-portal.funnelchat.app/specs/funnelchat.json
 npm run generate -- --spec funnelchat.json --expect-sha256 <hex> \
-  --source url=https://developers-portal.funnelchat.app/specs/funnelchat.json   # a new spec
+  --source url=https://developers-portal.funnelchat.app/specs/funnelchat.json \
+  --source portal_version=<vX.Y.Z>                                             # a new spec
 npm run generate                                                               # regenerate
 npm run generate:check                                                         # is it up to date?
 ```
 
-A spec downloaded from the portal is not a file of a checkout, so its copy says where it came from on the command line: `--source url=…`, `--expect-sha256 <hex>` to refuse a file that is not the one announced, and, for a file of a checkout of another repository, `--source repository=… --source branch=… --source commit=… --source path=…` and `--domain <area>=<sha>@<branch>@<snapshot_at>` for each area. `spec/procedencia.json` marks those fields as declared. Nothing else is touched by hand: a new spec is a new catalog, with its categories and groups.
+A spec downloaded from the portal is not a file of a checkout, so its copy says where it came from on the command line: `--source url=…`, `--source portal_version=…` (the portal's version, which the spec does not carry), `--expect-sha256 <hex>` to refuse a file that is not the one announced, and, for a file of a checkout of another repository, `--source repository=… --source branch=… --source commit=… --source path=…` and `--domain <area>=<sha>@<branch>@<snapshot_at>` for each area. `spec/procedencia.json` marks those fields as declared. Nothing else is touched by hand: a new spec is a new catalog, with its categories and groups.
 
 `spec/pending.json` is for a route that is not in the snapshot yet; today it is empty. When a new snapshot has a route from there, the generation says it can be deleted.
 
