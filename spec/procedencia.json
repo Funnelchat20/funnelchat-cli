@@ -1,8 +1,8 @@
 {
   "description": "Where spec/funnelchat.json came from. Written by `npm run generate -- --spec <file>`; do not edit it by hand.",
   "file": "spec/funnelchat.json",
-  "sha256": "7db2ead826697c80fd8feef3f0ea556b5374dd3d2cb5e02f3cfe4584af79e33c",
-  "bytes": 888446,
+  "sha256": "19e91748ddfe19eef74886264ee984d360417596745e5a900a02a7a831b570a0",
+  "bytes": 891547,
   "source": {
     "repository": null,
     "path": null,
@@ -11,16 +11,16 @@
     "commit_date": null,
     "file_tracked_in_git": null,
     "tracked_files_clean": null,
-    "file_modified_at": "2026-11-13T23:32:56.295Z",
+    "file_modified_at": "2026-11-14T12:30:29.511Z",
     "url": "https://developers-portal.funnelchat.app/specs/funnelchat.json",
-    "portal_version": "v0.6.16",
+    "portal_version": "v0.6.18",
     "declared": [
       "url",
       "portal_version"
     ],
     "declared_note": "The fields in `declared` were given on the command line (`--source`), not read from git: the file was imported from outside a checkout of its repository."
   },
-  "imported_at": "2026-11-13T23:33:40.704Z",
+  "imported_at": "2026-11-14T12:32:20.656Z",
   "spec": {
     "openapi": "3.1.0",
     "title": "Funnelchat API",
