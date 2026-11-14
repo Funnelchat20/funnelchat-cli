@@ -24,7 +24,7 @@ export interface RouteInfo {
 
 /** Where spec/funnelchat.json came from (spec/procedencia.json). */
 export const SPEC_SOURCE = {
-  "sha256": "7db2ead826697c80fd8feef3f0ea556b5374dd3d2cb5e02f3cfe4584af79e33c",
+  "sha256": "19e91748ddfe19eef74886264ee984d360417596745e5a900a02a7a831b570a0",
   "url": "https://developers-portal.funnelchat.app/specs/funnelchat.json",
   "repository": null,
   "branch": null,
