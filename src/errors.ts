@@ -146,7 +146,7 @@ function withRequestId(hint: string | undefined, requestId: string | undefined):
 export const KNOWN_API_ERRORS: Readonly<Record<string, { message: string; hint?: string; keepApiMessage?: true }>> = {
   // any route
   payment_required: {
-    message: 'The account\'s payment is overdue: the API does not take calls from it until it is settled.',
+    message: 'The payment of the account or of the workspace is overdue: the API does not take calls from it until it is settled.',
     hint: 'Settle it in the Funnelchat panel. Retrying does not help.',
   },
   gate_misconfigured: {

@@ -557,7 +557,7 @@ funnelchat contacts export --output-dir ./contacts --resume
 
 **Other global options:** `-q`/`--quiet` (no progress), `-v`/`--verbose` (every request to the API, with method, URL, status, timing and `X-Request-Id`; never the key).
 
-**The API's errors.** Every error of the API carries a stable code in `error` (the CLI's `code` and, with `--json`, `api_error`) and a text in `message`: `422 validation_failed` with the fields in `errors`, `404 not_found` (also for what belongs to another account: the API does not say whether it exists), `402 payment_required` when the account's payment is overdue (it is not retried: settle it in the panel), and `429 rate_limited` with `Retry-After`. The CLI also puts these in plain words: `device_not_meta` and `device_not_ready` (it needs an official number, connected to Meta), `unsupported_provider` (the number does not allow that change), `meta_error` (with Meta's reason), `502 provider_error` (the provider did not answer: a read is retried), `402 plan_cap_reached` (a cap of your plan; nothing was done), `webhooks_limit_reached` (50 subscriptions per workspace) and `500 gate_misconfigured` (on our side: please report it).
+**The API's errors.** Every error of the API carries a stable code in `error` (the CLI's `code` and, with `--json`, `api_error`) and a text in `message`: `422 validation_failed` with the fields in `errors`, `404 not_found` (also for what belongs to another account: the API does not say whether it exists), `402 payment_required` when the payment of the account or of the workspace is overdue (it is not retried: settle it in the panel), and `429 rate_limited` with `Retry-After`. The CLI also puts these in plain words: `device_not_meta` and `device_not_ready` (it needs an official number, connected to Meta), `unsupported_provider` (the number does not allow that change), `meta_error` (with Meta's reason), `502 provider_error` (the provider did not answer: a read is retried), `402 plan_cap_reached` (a cap of your plan; nothing was done), `webhooks_limit_reached` (50 subscriptions per workspace) and `500 gate_misconfigured` (on our side: please report it).
 
 The CLI asks the API for its messages in Spanish (`Accept-Language: es`), so the `message` the API returns, which the CLI appends to some errors, comes in Spanish. Decide by the exit code and by `code`, not by the text.
 
@@ -571,7 +571,7 @@ The CLI asks the API for its messages in Spanish (`Accept-Language: es`), so the
 | `3` | No key, a key the API rejects (`401`) or a key without the permission the route needs (`403`). |
 | `4` | Not found in your account, or it belongs to another account (`404 not_found`); or the route does not exist in the API (`404 route_not_found`). |
 | `5` | An API limit the CLI does not wait for on its own: the daily cap or a long `Retry-After`. It can be resumed. |
-| `6` | The API failed (`5xx`, `422`…) or could not be reached, after the retries; the account's payment is overdue (`402 payment_required`); or the message `send` watched failed. |
+| `6` | The API failed (`5xx`, `422`…) or could not be reached, after the retries; the payment of the account or of the workspace is overdue (`402 payment_required`); or the message `send` watched failed. |
 | `7` | The output already exists: the CLI never overwrites a file. |
 | `8` | `connect` waited `--timeout` and no number connected. |
 | `130` | Interrupted with Ctrl+C. An export can be resumed. |
@@ -591,7 +591,7 @@ The named commands use only routes that exist in the public spec (`spec/routes-u
 
 ## Where the spec comes from
 
-`spec/funnelchat.json` is the spec the developer portal publishes, <https://developers-portal.funnelchat.app/specs/funnelchat.json>, that of portal v0.6.18 (sha256 `19e91748…`): the operations and events the portal shows, which per the portal are those an API key can use in production. It has 253 operations and 57 webhook events, in three categories: Primer uso, Funciones de WhatsApp and Funciones de Funnelchat. It does not date the areas it is built from (its `x-fc-sources` carry no commit), so `spec/procedencia.json` records the URL and the portal's version, as declared, and the file's `sha256`. Since v0.6.15 it also declares, for each route, the errors of the common format (see [For scripts](#for-scripts)).
+`spec/funnelchat.json` is the spec the developer portal publishes, <https://developers-portal.funnelchat.app/specs/funnelchat.json>, that of portal v0.6.19 (sha256 `3a5f39f1…`): the operations and events the portal shows, which per the portal are those an API key can use in production. It has 253 operations and 57 webhook events, in three categories: Primer uso, Funciones de WhatsApp and Funciones de Funnelchat. It does not date the areas it is built from (its `x-fc-sources` carry no commit), so `spec/procedencia.json` records the URL and the portal's version, as declared, and the file's `sha256`. Since v0.6.15 it also declares, for each route, the errors of the common format (see [For scripts](#for-scripts)).
 
 Every route, parameter and body field the named commands use is in it, `GET /api/v1/me` of `login` and `whoami` included: `spec/pending.json` stays empty. The catalog of `funnelchat api` (`src/generated/operations.ts`) is generated from it, and from it alone.
 

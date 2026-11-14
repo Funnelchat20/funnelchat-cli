@@ -95,7 +95,7 @@ describe("the API entry's own errors", () => {
     expect(calls).toHaveLength(1);
     const error = JSON.parse(result.stderr).error;
     expect(error).toMatchObject({ code: 'payment_required', status: 402, exit_code: 6 });
-    expect(error.message).toContain('payment is overdue');
+    expect(error.message).toContain('of the workspace is overdue');
     expect(error.hint).toContain('Funnelchat panel');
   });
 });
