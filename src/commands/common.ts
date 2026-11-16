@@ -26,14 +26,28 @@ export function positiveInt(value: string, flag: string): number {
   return Number(value);
 }
 
-/** Ids from repeated or comma-separated values: `--contact 1 --contact 2,3`. */
-export function idList(values: string[] | undefined, flag: string): number[] {
-  const ids: number[] = [];
+/** The prefix of each kind of id the CLI takes (the portal's «Identificadores» page has the full table). */
+export type IdPrefix = 'dev' | 'ctc' | 'tag';
+
+/**
+ * An opaque id of the public API: `<prefix>_` and 23 base62 characters (`ctc_ABsza6Ialu1BCUyPFZ8WJvV`). It is text:
+ * it is checked for its shape and passed on as typed, never built or converted. An integer or an id of another kind is a 404 for the API.
+ */
+export function opaqueId(value: string, flag: string, prefix: IdPrefix): string {
+  const trimmed = value.trim();
+  if (!new RegExp(`^${prefix}_[A-Za-z0-9]{23}$`).test(trimmed)) {
+    throw usageError(`${flag} must be an id like ${prefix}_ followed by 23 letters or digits (${prefix}_ABsza6Ialu1BCUyPFZ8WJvV): ${value}`);
+  }
+  return trimmed;
+}
+
+/** Ids from repeated or comma-separated values: `--contact ctc_…  --contact ctc_…,ctc_…`. */
+export function idList(values: string[] | undefined, flag: string, prefix: IdPrefix): string[] {
+  const ids: string[] = [];
   for (const value of values ?? []) {
     for (const piece of value.split(',')) {
-      const trimmed = piece.trim();
-      if (trimmed === '') continue;
-      const id = positiveInt(trimmed, flag);
+      if (piece.trim() === '') continue;
+      const id = opaqueId(piece, flag, prefix);
       if (!ids.includes(id)) ids.push(id);
     }
   }

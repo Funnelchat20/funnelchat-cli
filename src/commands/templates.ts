@@ -3,7 +3,7 @@ import { usageError } from '../errors.js';
 import { routes } from '../generated/routes.js';
 import type { Context } from '../context.js';
 import { table } from '../output.js';
-import { positiveInt } from './common.js';
+import { opaqueId } from './common.js';
 
 export interface TemplatesListFlags {
   device?: string;
@@ -17,7 +17,7 @@ export async function templatesList(ctx: Context, flags: TemplatesListFlags): Pr
   if (status && !STATUSES.includes(status)) throw usageError(`--status must be one of ${STATUSES.join(', ')}: ${flags.status}`);
   const query = {
     perPage: 100,
-    ...(flags.device ? { deviceId: positiveInt(flags.device, '--device') } : {}),
+    ...(flags.device ? { deviceId: opaqueId(flags.device, '--device', 'dev') } : {}),
     ...(status ? { status } : {}),
   };
   const templates: Record<string, unknown>[] = [];

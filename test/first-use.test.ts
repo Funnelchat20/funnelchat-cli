@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { normalizePhone } from '../src/commands/send.js';
-import { cli, FakeAccount, tempDir } from './helpers.js';
+import { cli, FakeAccount, oid, tempDir } from './helpers.js';
 
 const LINK = 'https://app.funnelchat.com/connect/TestOnlyLinkToken';
 
@@ -10,11 +10,11 @@ describe('first use', () => {
     let listings = 0;
     const account = new FakeAccount().hook((request) => {
       if (request.method === 'POST' && request.path === '/api/v1/connect-links') {
-        return { status: 201, body: { data: { id: 12, type: 'qr', status: 'pending', url: LINK, expires_at: '2026-10-16T12:30:00+00:00' } } };
+        return { status: 201, body: { data: { id: oid('lnk', 12), type: 'qr', status: 'pending', url: LINK, expires_at: '2026-10-16T12:30:00+00:00' } } };
       }
       // The third listing (the second poll) has the number the link connected.
       if (request.path === '/api/v1/devices' && ++listings === 3) {
-        return { body: [{ id: 3, alias: 'Oficial', number: '5491100000001', provider: 2, connected: 1 }, { id: 4, alias: 'QR', number: '5491100000002', provider: 1, connected: 1 }, { id: 5, alias: '', number: '5491100000003', provider: 1, connected: 1 }] };
+        return { body: [{ id: oid('dev', 3), alias: 'Oficial', number: '5491100000001', provider: 2, connected: 1 }, { id: oid('dev', 4), alias: 'QR', number: '5491100000002', provider: 1, connected: 1 }, { id: oid('dev', 5), alias: '', number: '5491100000003', provider: 1, connected: 1 }] };
       }
       return undefined;
     });
@@ -24,15 +24,15 @@ describe('first use', () => {
     expect(result.code, result.stderr).toBe(0);
     expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(['GET /api/v1/devices', 'POST /api/v1/connect-links', 'GET /api/v1/devices', 'GET /api/v1/devices']);
     expect(calls[1]?.body).toEqual({ type: 'qr' });
-    expect(result.stdout.indexOf(LINK)).toBeLessThan(result.stdout.indexOf('Connected: 5491100000003, id 5.'));
-    expect(result.stdout).toContain('funnelchat send <phone> "Hello from Funnelchat" --device 5');
+    expect(result.stdout.indexOf(LINK)).toBeLessThan(result.stdout.indexOf(`Connected: 5491100000003, id ${oid('dev', 5)}.`));
+    expect(result.stdout).toContain(`funnelchat send <phone> "Hello from Funnelchat" --device ${oid('dev', 5)}`);
     expect(result.sleeps.filter((ms) => ms >= 1000)).toEqual([5000, 5000]);
   });
 
   it('connect --us-number asks for a dedicated US number of Funnelchat and says what the page will ask', async () => {
     const account = new FakeAccount().hook((request) => {
       if (request.method === 'POST' && request.path === '/api/v1/connect-links') {
-        return { status: 201, body: { data: { id: 13, type: 'meta', status: 'pending', url: LINK, expires_at: '2026-11-08T12:30:00+00:00', allowed_connection_types: ['dedicated'], provision_us_number: true } } };
+        return { status: 201, body: { data: { id: oid('lnk', 13), type: 'meta', status: 'pending', url: LINK, expires_at: '2026-11-08T12:30:00+00:00', allowed_connection_types: ['dedicated'], provision_us_number: true } } };
       }
       return undefined;
     });
@@ -51,32 +51,32 @@ describe('first use', () => {
     let listings = 0;
     const account = new FakeAccount().hook((request) => {
       if (request.method === 'POST' && request.path === '/api/v1/connect-links') {
-        return { status: 201, body: { data: { id: 14, type: 'meta', status: 'pending', url: LINK, expires_at: '2026-11-08T12:30:00+00:00', device_id: 3 } } };
+        return { status: 201, body: { data: { id: oid('lnk', 14), type: 'meta', status: 'pending', url: LINK, expires_at: '2026-11-08T12:30:00+00:00', device_id: oid('dev', 3) } } };
       }
       // Number 3 (official, dedicated) is disconnected until the second listing (the first poll).
       if (request.path === '/api/v1/devices') {
-        return { body: [{ id: 3, alias: 'Oficial', number: '5491100000001', provider: 2, connection: 'dedicated', connected: ++listings >= 2 ? 1 : 0 }, { id: 4, alias: 'QR', number: '5491100000002', provider: 1, connection: 'qr', connected: 1 }] };
+        return { body: [{ id: oid('dev', 3), alias: 'Oficial', number: '5491100000001', provider: 2, connection: 'dedicated', connected: ++listings >= 2 ? 1 : 0 }, { id: oid('dev', 4), alias: 'QR', number: '5491100000002', provider: 1, connection: 'qr', connected: 1 }] };
       }
       return undefined;
     });
 
     const { fetch, calls } = account.fetch();
-    const result = await cli(['connect', '--device', '3'], { fetch, cwd: tempDir() });
+    const result = await cli(['connect', '--device', oid('dev', 3)], { fetch, cwd: tempDir() });
     expect(result.code, result.stderr).toBe(0);
     expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(['GET /api/v1/devices', 'POST /api/v1/connect-links', 'GET /api/v1/devices']);
-    expect(calls[1]?.body).toEqual({ type: 'meta', allowed_connection_types: ['dedicated'], device_id: 3 });
+    expect(calls[1]?.body).toEqual({ type: 'meta', allowed_connection_types: ['dedicated'], device_id: oid('dev', 3) });
     expect(result.stdout).toContain('log in with Facebook to reconnect Oficial (5491100000001) to the official WhatsApp API:');
-    expect(result.stdout).toContain('It reconnects number 3: it does not add a new one.');
-    expect(result.stdout).toContain('Reconnected: Oficial (5491100000001), id 3.');
+    expect(result.stdout).toContain(`It reconnects number ${oid('dev', 3)}: it does not add a new one.`);
+    expect(result.stdout).toContain(`Reconnected: Oficial (5491100000001), id ${oid('dev', 3)}.`);
 
     const connected = account.fetch();
-    const already = await cli(['connect', '--device', '4'], { fetch: connected.fetch, cwd: tempDir() });
+    const already = await cli(['connect', '--device', oid('dev', 4)], { fetch: connected.fetch, cwd: tempDir() });
     expect(already.code, already.stderr).toBe(0);
     expect(connected.calls.map((c) => c.method)).toEqual(['GET']);
-    expect(already.stdout).toContain('QR (5491100000002), id 4, is already connected: there is nothing to reconnect and no link was created.');
+    expect(already.stdout).toContain(`QR (5491100000002), id ${oid('dev', 4)}, is already connected: there is nothing to reconnect and no link was created.`);
 
     const both = account.fetch();
-    const usage = await cli(['connect', '--device', '3', '--us-number'], { fetch: both.fetch, cwd: tempDir() });
+    const usage = await cli(['connect', '--device', oid('dev', 3), '--us-number'], { fetch: both.fetch, cwd: tempDir() });
     expect(usage.code).toBe(2);
     expect(both.calls).toEqual([]);
   });
@@ -85,20 +85,20 @@ describe('first use', () => {
     const statuses = ['sent', 'delivered', 'delivered', 'read'];
     const hooks = (rejection?: { status: number; body: unknown }) =>
       new FakeAccount().hook((request) => {
-        if (request.path === '/api/v1/devices') return { body: [{ id: 3, alias: 'Oficial', number: '5491100000001', provider: 2, connected: 0 }, { id: 4, alias: 'QR', number: '5491100000002', provider: 1, connected: 1 }] };
+        if (request.path === '/api/v1/devices') return { body: [{ id: oid('dev', 3), alias: 'Oficial', number: '5491100000001', provider: 2, connected: 0 }, { id: oid('dev', 4), alias: 'QR', number: '5491100000002', provider: 1, connected: 1 }] };
         if (request.method === 'POST' && request.path === '/api/v1/message/send-message') {
-          return rejection ?? { body: { message: { id: 9001, contact_id: 2001, device_id: 4, direction: 'outbound', type: 'text', status: 'queued', error: null } } };
+          return rejection ?? { body: { message: { id: oid('msg', 9001), contact_id: oid('ctc', 2001), device_id: oid('dev', 4), direction: 'outbound', type: 'text', status: 'queued', error: null } } };
         }
-        if (request.path === '/api/v1/contacts/2001/messages/9001') return { body: { id: 9001, contact_id: 2001, status: statuses.shift() ?? 'read', error: null } };
+        if (request.path === `/api/v1/contacts/${oid('ctc', 2001)}/messages/${oid('msg', 9001)}`) return { body: { id: oid('msg', 9001), contact_id: oid('ctc', 2001), status: statuses.shift() ?? 'read', error: null } };
         return undefined;
       });
 
     const { fetch, calls } = hooks().fetch();
     const result = await cli(['send', '+54 9 11 2233-4455', 'Hello', 'from', 'Funnelchat'], { fetch, cwd: tempDir() });
     expect(result.code, result.stderr).toBe(0);
-    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ device_id: 4, phone: '5491122334455', text: 'Hello from Funnelchat' });
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ device_id: oid('dev', 4), phone: '5491122334455', text: 'Hello from Funnelchat' });
     expect(result.stderr).toMatch(/queued[\s\S]*sent\s+after 1 s[\s\S]*delivered\s+after 2 s[\s\S]*read\s+after 5 s/);
-    expect(result.stdout).toContain('Message 9001 to 5491122334455: read 5 s after sending.');
+    expect(result.stdout).toContain(`Message ${oid('msg', 9001)} to 5491122334455: read 5 s after sending.`);
     // Backoff: 1 s after each change, doubling while nothing changes.
     expect(result.sleeps.filter((ms) => ms >= 1000)).toEqual([1000, 1000, 1000, 2000]);
 

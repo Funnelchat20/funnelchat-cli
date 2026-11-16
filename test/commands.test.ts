@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { VERSION } from '../src/version.js';
-import { cli, FakeAccount, jsonl, tempDir } from './helpers.js';
+import { cli, FakeAccount, jsonl, oid, tempDir } from './helpers.js';
 
 const run = (args: string[], account = new FakeAccount()) => {
   const { fetch, calls } = account.fetch();
@@ -25,8 +25,8 @@ describe('numbers', () => {
   it('lists what each number allows', async () => {
     const json = JSON.parse((await run(['--json', 'numbers', 'list'])).stdout);
     const [official, qr] = json.numbers;
-    expect(official).toMatchObject({ id: 3, connection: 'official', cli_capabilities: ['contacts', 'conversations', 'templates', 'health'] });
-    expect(qr).toMatchObject({ id: 4, connection: 'qr', cli_capabilities: ['contacts', 'conversations'] });
+    expect(official).toMatchObject({ id: oid('dev', 3), connection: 'official', cli_capabilities: ['contacts', 'conversations', 'templates', 'health'] });
+    expect(qr).toMatchObject({ id: oid('dev', 4), connection: 'qr', cli_capabilities: ['contacts', 'conversations'] });
     // The API's own `capabilities` (accounts v1.4.24) goes through untouched.
     expect(official.capabilities).toEqual({ messages: { text: true, templates: true }, groups: { send: false }, statuses: ['sent', 'delivered', 'read', 'failed'] });
     const human = await run(['numbers', 'list']);
@@ -35,9 +35,9 @@ describe('numbers', () => {
 
   it('health reads only official numbers by default, and says when one is not official', async () => {
     const all = await run(['--json', 'numbers', 'health']);
-    expect(all.calls.map((c) => c.path)).toEqual(['/api/v1/devices', '/api/v1/devices/3/health']);
-    expect(JSON.parse(all.stdout).numbers[0]).toMatchObject({ device_id: 3, health: { messaging_limit_tier: 'TIER_1K', messaging_limit_per_day: 1000 }, throughput_level: 'STANDARD' });
-    const some = await run(['numbers', 'health', '3', '4']);
+    expect(all.calls.map((c) => c.path)).toEqual(['/api/v1/devices', `/api/v1/devices/${oid('dev', 3)}/health`]);
+    expect(JSON.parse(all.stdout).numbers[0]).toMatchObject({ device_id: oid('dev', 3), health: { messaging_limit_tier: 'TIER_1K', messaging_limit_per_day: 1000 }, throughput_level: 'STANDARD' });
+    const some = await run(['numbers', 'health', oid('dev', 3), oid('dev', 4)]);
     expect(some.code).toBe(0);
     expect(some.stdout).toContain('TIER_1K');
     expect(some.stdout).toContain('not an official number');
@@ -46,9 +46,9 @@ describe('numbers', () => {
 
 describe('templates', () => {
   it('lists templates with filters', async () => {
-    const result = await run(['templates', 'list', '--device', '3', '--status', 'approved']);
+    const result = await run(['templates', 'list', '--device', oid('dev', 3), '--status', 'approved']);
     expect(result.code).toBe(0);
-    expect(result.calls[0]?.query.get('deviceId')).toBe('3');
+    expect(result.calls[0]?.query.get('deviceId')).toBe(oid('dev', 3));
     expect(result.calls[0]?.query.get('status')).toBe('APPROVED');
     expect(result.stdout).toContain('bienvenida');
   });
@@ -92,26 +92,26 @@ describe('mac status', () => {
 
 describe('exports, details', () => {
   it('conversations --contact: one lookup per contact; an unknown contact is a 404', async () => {
-    const result = await run(['conversations', 'export', '-o', 'out', '--contact', '1002,1003']);
+    const result = await run(['conversations', 'export', '-o', 'out', '--contact', `${oid('ctc', 1002)},${oid('ctc', 1003)}`]);
     expect(result.code).toBe(0);
-    expect(result.calls.filter((c) => c.path === '/api/v1/conversations').map((c) => c.query.get('contactId'))).toEqual(['1002', '1003']);
-    expect((await run(['conversations', 'export', '-o', 'out', '--contact', '5'])).code).toBe(4);
+    expect(result.calls.filter((c) => c.path === '/api/v1/conversations').map((c) => c.query.get('contactId'))).toEqual([oid('ctc', 1002), oid('ctc', 1003)]);
+    expect((await run(['conversations', 'export', '-o', 'out', '--contact', oid('ctc', 5)])).code).toBe(4);
   });
 
   it('conversations --device keeps that number only', async () => {
     const cwd = tempDir();
     const account = new FakeAccount({ contacts: 4 });
     const { fetch, calls } = account.fetch();
-    expect((await cli(['conversations', 'export', '-o', 'out', '--device', '3'], { fetch, cwd })).code).toBe(0);
-    expect(calls.find((c) => c.path === '/api/v1/conversations')?.query.get('deviceId')).toBe('3');
+    expect((await cli(['conversations', 'export', '-o', 'out', '--device', oid('dev', 3)], { fetch, cwd })).code).toBe(0);
+    expect(calls.find((c) => c.path === '/api/v1/conversations')?.query.get('deviceId')).toBe(oid('dev', 3));
     const messages = jsonl(readFileSync(join(cwd, 'out', 'messages-00001.jsonl'), 'utf8'));
     expect(messages.length).toBeGreaterThan(0);
-    expect(messages.every((m) => m.device_id === 3)).toBe(true);
+    expect(messages.every((m) => m.device_id === oid('dev', 3))).toBe(true);
   });
 
   it('a contact deleted mid-export is counted, not fatal', async () => {
     const cwd = tempDir();
-    const account = new FakeAccount({ contacts: 3 }).hook((r) => (r.path === '/api/v1/contacts/1002/tags' ? { status: 404, body: {} } : undefined));
+    const account = new FakeAccount({ contacts: 3 }).hook((r) => (r.path === `/api/v1/contacts/${oid('ctc', 1002)}/tags` ? { status: 404, body: {} } : undefined));
     expect((await cli(['contacts', 'export', '-o', 'out', '--format', 'jsonl'], { fetch: account.fetch().fetch, cwd })).code).toBe(0);
     const manifest = JSON.parse(readFileSync(join(cwd, 'out', 'manifest.json'), 'utf8'));
     expect(manifest.counts).toMatchObject({ contacts: 2, vanished_during_export: 1 });
@@ -123,10 +123,10 @@ describe('exports, details', () => {
   });
 
   it('contacts filters reach the API as it expects them', async () => {
-    const result = await run(['contacts', 'export', '-o', 'out', '--tag', '1', '--tag', '2,3', '--tag-mode', 'all', '--created-from', '2026-10-01', '--created-to', '2026-10-15', '--only-with-phone']);
+    const result = await run(['contacts', 'export', '-o', 'out', '--tag', oid('tag', 1), '--tag', `${oid('tag', 2)},${oid('tag', 3)}`, '--tag-mode', 'all', '--created-from', '2026-10-01', '--created-to', '2026-10-15', '--only-with-phone']);
     expect(result.code).toBe(0);
     const query = result.calls.find((c) => c.path === '/api/v1/contacts')?.query;
-    expect(query?.getAll('tag_ids[]')).toEqual(['1', '2', '3']);
+    expect(query?.getAll('tag_ids[]')).toEqual([oid('tag', 1), oid('tag', 2), oid('tag', 3)]);
     expect(query?.get('tag_mode')).toBe('all');
     expect(query?.get('created_from')).toBe('2026-10-01');
     expect(query?.get('created_to')).toBe('2026-10-15');
@@ -159,5 +159,15 @@ describe('usage', () => {
     const result = await run(['numbers', 'list'], new FakeAccount().hook(() => ({ status: 403, body: { error: 'permission_denied', message: 'Falta accounts:read.' } })));
     expect(result.code).toBe(3);
     expect(result.stderr).toContain('accounts:read');
+  });
+});
+
+describe('opaque ids', () => {
+  it('an integer or an id of another kind is refused before any call', async () => {
+    for (const args of [['templates', 'list', '--device', '3'], ['templates', 'list', '--device', oid('ctc', 1)], ['conversations', 'export', '-o', 'out', '--contact', '1002'], ['contacts', 'export', '-o', 'out', '--tag', '1']]) {
+      const result = await run(args);
+      expect(result.code, args.join(' ')).toBe(2);
+      expect(result.calls).toHaveLength(0);
+    }
   });
 });

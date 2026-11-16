@@ -69,7 +69,7 @@ export interface Endpoint {
 }
 
 export interface RequestOptions {
-  path?: Record<string, string | number>;
+  path?: Record<string, string>;
   query?: Record<string, unknown>;
   /** The JSON body of a write. */
   body?: unknown;

@@ -25,7 +25,7 @@ import { parseSince, timestampForName } from '../dates.js';
 import { type FileEntry, PartFile, type PartPosition } from '../export/files.js';
 import { baseManifest, type BaseState, ExportSession, type Manifest, quote } from '../export/session.js';
 import { VERSION } from '../version.js';
-import { idList, positiveInt } from './common.js';
+import { idList, opaqueId, positiveInt } from './common.js';
 import { countOf, finishExport, formatCount, withResumeHint } from './export-common.js';
 
 export interface ConversationsExportFlags {
@@ -38,8 +38,8 @@ export interface ConversationsExportFlags {
 }
 
 interface ConversationsOptions extends Record<string, unknown> {
-  contact_ids: number[];
-  device_id: number | null;
+  contact_ids: string[];
+  device_id: string | null;
   since: string | null;
   part_size: number;
 }
@@ -59,7 +59,7 @@ interface ConversationsState extends BaseState {
     total: number;
   };
   /** Contacts listed but deleted before their messages were read (404). */
-  vanished_contacts: number[];
+  vanished_contacts: string[];
   observed: { first_message_time: string | null; last_message_time: string | null };
 }
 
@@ -80,8 +80,8 @@ export function partName(index: number): string {
 }
 
 function normalize(flags: ConversationsExportFlags): ConversationsOptions {
-  const contactIds = idList(flags.contact, '--contact');
-  const deviceId = flags.device ? positiveInt(flags.device, '--device') : null;
+  const contactIds = idList(flags.contact, '--contact', 'ctc');
+  const deviceId = flags.device ? opaqueId(flags.device, '--device', 'dev') : null;
   const partSize = flags.partSize ? positiveInt(flags.partSize, '--part-size') : DEFAULT_PART_SIZE;
   return { contact_ids: contactIds, device_id: deviceId, since: flags.since ? parseSince(flags.since) : null, part_size: partSize };
 }
@@ -150,7 +150,7 @@ export async function conversationsExport(ctx: Context, flags: ConversationsExpo
         if (o.contact_ids.length) {
           for (let i = state.list.contact_index; i < o.contact_ids.length; i++) {
             checkAbort();
-            const id = o.contact_ids[i] as number;
+            const id = o.contact_ids[i] as string;
             const page = await client.page<Record<string, unknown>>(routes.conversationsList, { query: { contactId: id, perPage: 1 } });
             const conversation = page.items.find((item) => conversationContactId(item) === id);
             if (!conversation) {
@@ -186,7 +186,7 @@ export async function conversationsExport(ctx: Context, flags: ConversationsExpo
           let rows = 0;
           for (const conversation of page.items) {
             const id = conversationContactId(conversation);
-            if (!Number.isSafeInteger(id) || seen.has(id)) continue;
+            if (id === null || seen.has(id)) continue;
             seen.add(id);
             text += `${JSON.stringify(conversation)}\n`;
             rows++;
@@ -241,7 +241,7 @@ export async function conversationsExport(ctx: Context, flags: ConversationsExpo
     if (file && (file as PartFile).rows >= o.part_size) rotate();
 
     for (let i = m.contact_index; i < contactIds.length; i++) {
-      const contactId = contactIds[i] as number;
+      const contactId = contactIds[i] as string;
       let messages = 0;
       for (;;) {
         checkAbort();
@@ -257,7 +257,7 @@ export async function conversationsExport(ctx: Context, flags: ConversationsExpo
           }
           throw error;
         }
-        const rows = o.device_id === null ? page.items : page.items.filter((message) => Number(message.device_id) === o.device_id);
+        const rows = o.device_id === null ? page.items : page.items.filter((message) => message.device_id === o.device_id);
         if (rows.length) {
           const part = currentPart();
           part.append(rows.map((message) => `${JSON.stringify(message)}\n`).join(''), rows.length);
@@ -305,7 +305,7 @@ export async function conversationsExport(ctx: Context, flags: ConversationsExpo
       files: [conversationsFile, ...m.parts],
       notes: [
         'conversations.jsonl: one conversation per line, as GET /api/v1/conversations returns it (by contact_id, without repeats).',
-        'messages-NNNNN.jsonl: one message per line, as GET /api/v1/contacts/{contactId}/messages returns it; conversations in the order of conversations.jsonl and, within each one, from the newest message to the oldest (descending id, the API\'s order).',
+        'messages-NNNNN.jsonl: one message per line, as GET /api/v1/contacts/{contactId}/messages returns it; conversations in the order of conversations.jsonl and, within each one, from the newest message to the oldest (the API\'s order).',
         ...(o.since ? ['since is sent as updated_since: conversations and messages created or changed since that date. The API has no "until" filter.'] : []),
         ...(o.device_id !== null
           ? ['device_id picks the conversations on the API side (deviceId) and the messages on the CLI side: the API does not filter messages by number.']
@@ -332,19 +332,20 @@ export async function conversationsExport(ctx: Context, flags: ConversationsExpo
  * @ 3b0326e4f, ConversationController::index selects `contacts.id as contact_id`); the sandbox answers
  * with contact objects, which only have `id`.
  */
-export function conversationContactId(row: Record<string, unknown>): number {
-  return Number(row.contact_id ?? row.id);
+export function conversationContactId(row: Record<string, unknown>): string | null {
+  const id = row.contact_id ?? row.id;
+  return typeof id === 'string' && id !== '' ? id : null;
 }
 
 /** `contact_id` of each line of a conversations file, up to `limit` bytes. */
-function readContactIds(path: string, limit?: number): number[] {
+function readContactIds(path: string, limit?: number): string[] {
   const content = readFileSync(path).subarray(0, limit).toString('utf8');
-  const ids = new Set<number>();
+  const ids = new Set<string>();
   for (const line of content.split('\n')) {
     if (line.trim() === '') continue;
     const parsed: unknown = JSON.parse(line);
-    const id = isRecord(parsed) ? conversationContactId(parsed) : NaN;
-    if (Number.isSafeInteger(id)) ids.add(id);
+    const id = isRecord(parsed) ? conversationContactId(parsed) : null;
+    if (id !== null) ids.add(id);
   }
   return [...ids];
 }

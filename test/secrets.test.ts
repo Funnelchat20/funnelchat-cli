@@ -2,7 +2,7 @@ import { statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { Redactor } from '../src/http/redact.js';
-import { cli, FakeAccount, readTree, TEST_KEY, TEST_SECRET, tempDir } from './helpers.js';
+import { cli, FakeAccount, oid, readTree, TEST_KEY, TEST_SECRET, tempDir } from './helpers.js';
 
 const SESSION_TOKEN = 'session-token-must-never-show';
 
@@ -17,14 +17,14 @@ const COMMANDS: string[][] = [
   ['whoami'],
   ['numbers', 'list'],
   ['numbers', 'health'],
-  ['numbers', 'health', '3', '4'],
+  ['numbers', 'health', oid('dev', 3), oid('dev', 4)],
   ['templates', 'list'],
   ['mac', 'status'],
   ['profiles'],
   ['contacts', 'export', '-o', 'csv'],
   ['contacts', 'export', '-o', 'jsonl', '--format', 'jsonl'],
   ['conversations', 'export', '-o', 'conv', '--part-size', '2'],
-  ['conversations', 'export', '-o', 'one', '--contact', '1002'],
+  ['conversations', 'export', '-o', 'one', '--contact', oid('ctc', 1002)],
 ];
 
 describe('the key never shows up', () => {

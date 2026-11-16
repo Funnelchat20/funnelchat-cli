@@ -37,7 +37,7 @@ export interface ContactsExportFlags {
 
 interface ContactsOptions extends Record<string, unknown> {
   format: 'csv' | 'jsonl';
-  tag_ids: number[];
+  tag_ids: string[];
   tag_mode: 'any' | 'all' | 'exclude' | null;
   created_from: string | null;
   created_to: string | null;
@@ -50,11 +50,10 @@ interface ContactsState extends BaseState {
   kind: 'contacts';
   options: ContactsOptions;
   /** CSV columns of custom fields; `null` until listed. */
-  columns: { id: number; name: string }[] | null;
+  columns: { id: string; name: string }[] | null;
   /** Query of the next page; `null` before the first one. */
   next: PageQuery | null;
   done: boolean;
-  last_id: number | null;
   file: PartPosition;
   header_written: boolean;
   api_total_at_start: number | null;
@@ -101,7 +100,7 @@ function normalize(flags: ContactsExportFlags): ContactsOptions {
   if (format !== 'csv' && format !== 'jsonl') throw usageError(`--format must be csv or jsonl: ${flags.format}`);
   const tagMode = flags.tagMode?.toLowerCase() ?? null;
   if (tagMode !== null && !['any', 'all', 'exclude'].includes(tagMode)) throw usageError(`--tag-mode must be any, all or exclude: ${flags.tagMode}`);
-  const tagIds = idList(flags.tag, '--tag');
+  const tagIds = idList(flags.tag, '--tag', 'tag');
   if (tagMode !== null && tagIds.length === 0) throw usageError('--tag-mode needs at least one --tag.');
   if (Boolean(flags.createdFrom) !== Boolean(flags.createdTo)) {
     throw usageError('--created-from and --created-to go together: the API needs both.', 'For "from a date until today", put today in --created-to.');
@@ -158,7 +157,6 @@ export async function contactsExport(ctx: Context, flags: ContactsExportFlags, e
       columns: null,
       next: null,
       done: false,
-      last_id: null,
       file: { offset: 0, rows: 0 },
       header_written: false,
       api_total_at_start: null,
@@ -186,9 +184,9 @@ export async function contactsExport(ctx: Context, flags: ContactsExportFlags, e
     ctx.out.progress(resume ? `Resuming the contacts export in ${session.dir}` : `Exporting contacts to ${session.dir}`);
 
     if (o.format === 'csv' && o.with_custom_fields && state.columns === null) {
-      const columns: { id: number; name: string }[] = [];
+      const columns: { id: string; name: string }[] = [];
       for await (const field of client.all<Record<string, unknown>>(routes.customFieldsList, { query: { perPage: PER_PAGE, orderBy: 'created_at', orderByMethod: 'asc' } })) {
-        if (typeof field.id === 'number') columns.push({ id: field.id, name: typeof field.name === 'string' ? field.name : String(field.id) });
+        if (typeof field.id === 'string') columns.push({ id: field.id, name: typeof field.name === 'string' ? field.name : String(field.id) });
       }
       state.columns = columns;
       countCalls();
@@ -216,8 +214,8 @@ export async function contactsExport(ctx: Context, flags: ContactsExportFlags, e
         let text = '';
         let rows = 0;
         for (const contact of page.items) {
-          const id = typeof contact.id === 'number' ? contact.id : Number(contact.id);
-          if (state.last_id !== null && id <= state.last_id) continue;
+          // The page and the file position are saved together, so a resume never repeats a row: ids are opaque, there is no order to compare.
+          const id = String(contact.id);
           const enriched = await enrich(client, contact, id, o);
           if (enriched === null) {
             state.vanished++;
@@ -226,7 +224,6 @@ export async function contactsExport(ctx: Context, flags: ContactsExportFlags, e
             rows++;
             observe(state, contact.created_at);
           }
-          state.last_id = state.last_id === null ? id : Math.max(state.last_id, id);
         }
         file.append(text, rows);
         file.sync();
@@ -258,7 +255,7 @@ export async function contactsExport(ctx: Context, flags: ContactsExportFlags, e
       },
       files: [entry],
       notes: [
-        'Contacts ordered by ascending id, as GET /api/v1/contacts pages them (by page number).',
+        'Contacts in the order of the listing (orderBy id, ascending), as GET /api/v1/contacts pages them (by page number).',
         'If contacts are deleted during the export, paging by page number can skip some: compare counts.contacts with counts.api_total_at_start.',
         ...(o.with_tags ? ['Tags: GET /api/v1/contacts/{contact}/tags, one request per contact (the listing does not include them).'] : []),
         ...(o.with_custom_fields
@@ -279,7 +276,7 @@ export async function contactsExport(ctx: Context, flags: ContactsExportFlags, e
 }
 
 /** The contact with its tags and custom fields; `null` when it was deleted after being listed. */
-async function enrich(client: ApiClient, contact: Record<string, unknown>, id: number, o: ContactsOptions): Promise<Record<string, unknown> | null> {
+async function enrich(client: ApiClient, contact: Record<string, unknown>, id: string, o: ContactsOptions): Promise<Record<string, unknown> | null> {
   try {
     const tags = o.with_tags ? await all(client, routes.contactTags, id) : undefined;
     const customFields = o.with_custom_fields ? await all(client, routes.contactCustomFields, id) : undefined;
@@ -290,7 +287,7 @@ async function enrich(client: ApiClient, contact: Record<string, unknown>, id: n
   }
 }
 
-async function all(client: ApiClient, route: RouteInfo, contact: number): Promise<Record<string, unknown>[]> {
+async function all(client: ApiClient, route: RouteInfo, contact: string): Promise<Record<string, unknown>[]> {
   const items: Record<string, unknown>[] = [];
   for await (const item of client.all<Record<string, unknown>>(route, { path: { contact }, query: { perPage: PER_PAGE } })) items.push(item);
   return items;
@@ -303,11 +300,11 @@ function observe(state: ContactsState, createdAt: unknown): void {
   if (o.last_created_at === null || createdAt > o.last_created_at) o.last_created_at = createdAt;
 }
 
-function csvHeader(o: ContactsOptions, columns: { id: number; name: string }[]): string[] {
+function csvHeader(o: ContactsOptions, columns: { id: string; name: string }[]): string[] {
   return [...BASE_COLUMNS, ...(o.with_tags ? ['tags', 'tag_ids'] : []), ...columns.map((c) => `custom_field:${c.name}`)];
 }
 
-function csvValues(contact: Record<string, unknown>, o: ContactsOptions, columns: { id: number; name: string }[]): unknown[] {
+function csvValues(contact: Record<string, unknown>, o: ContactsOptions, columns: { id: string; name: string }[]): unknown[] {
   const leadScore = isRecord(contact.lead_score) ? contact.lead_score : undefined;
   const base = BASE_COLUMNS.map((column) => {
     if (column === 'lead_score') return leadScore?.score;

@@ -28,7 +28,7 @@ import { CliError, ExitCode, InterruptedError, isRecord, usageError } from '../e
 import { routes } from '../generated/routes.js';
 import type { Context } from '../context.js';
 import { toCliError } from '../output.js';
-import { pause, positiveInt, seconds } from './common.js';
+import { opaqueId, pause, seconds } from './common.js';
 import { connectionOf, deviceLabel, isConnected, listDevices } from './numbers.js';
 
 export interface ConnectFlags {
@@ -109,7 +109,7 @@ function reconnectPlan(device: Record<string, unknown>): LinkPlan {
   const secret = 'Whoever has the link can connect a phone to that number of your account: do not share it.';
   if (connectionOf(device) === 'qr') {
     return {
-      body: { type: 'qr', device_id: Number(device.id) },
+      body: { type: 'qr', device_id: String(device.id) },
       instructions: (link) => [
         `Open this link, tap the button and scan the QR code with WhatsApp on the phone of ${label} (Linked devices → Link a device):`,
         '',
@@ -124,7 +124,7 @@ function reconnectPlan(device: Record<string, unknown>): LinkPlan {
     };
   }
   return {
-    body: { type: 'meta', allowed_connection_types: allowedConnectionTypes(device), device_id: Number(device.id) },
+    body: { type: 'meta', allowed_connection_types: allowedConnectionTypes(device), device_id: String(device.id) },
     instructions: (link) => [
       `Open this link and log in with Facebook to reconnect ${label} to the official WhatsApp API:`,
       '',
@@ -156,7 +156,7 @@ export async function connect(ctx: Context, flags: ConnectFlags): Promise<void> 
       'No link was created. Reconnect with `funnelchat connect --device <id>`, or ask for a US number with `funnelchat connect --us-number`.',
     );
   }
-  const deviceId = flags.device === undefined ? null : positiveInt(flags.device, '--device');
+  const deviceId = flags.device === undefined ? null : opaqueId(flags.device, '--device', 'dev');
   const wait = flags.wait !== false;
   const timeout = flags.timeout === undefined ? CONNECT_TIMEOUT_SECONDS : seconds(flags.timeout, '--timeout');
   const client = ctx.client();
@@ -164,12 +164,12 @@ export async function connect(ctx: Context, flags: ConnectFlags): Promise<void> 
   // What was connected before, so the wait recognises the number this link connects. A reconnection
   // lists them even without waiting: the link takes the number's type.
   const before = wait || deviceId !== null ? await listDevices(ctx) : [];
-  const known = new Set(before.map((d) => Number(d.id)));
-  const connectedBefore = new Set(before.filter(isConnected).map((d) => Number(d.id)));
+  const known = new Set(before.map((d) => String(d.id)));
+  const connectedBefore = new Set(before.filter(isConnected).map((d) => String(d.id)));
 
   let plan: LinkPlan;
   if (deviceId !== null) {
-    const device = before.find((d) => Number(d.id) === deviceId);
+    const device = before.find((d) => String(d.id) === deviceId);
     if (!device) {
       throw new CliError(`Number ${deviceId} is not one of your account's numbers.`, {
         exitCode: ExitCode.NOT_FOUND,
@@ -226,10 +226,10 @@ export async function connect(ctx: Context, flags: ConnectFlags): Promise<void> 
       const devices = await listDevices(ctx);
       let device: Record<string, unknown> | undefined;
       if (plan.target) {
-        device = devices.find((d) => Number(d.id) === Number(plan.target?.id) && isConnected(d));
+        device = devices.find((d) => String(d.id) === String(plan.target?.id) && isConnected(d));
       } else {
-        const connected = devices.filter((d) => isConnected(d) && !connectedBefore.has(Number(d.id)));
-        device = connected.find((d) => !known.has(Number(d.id))) ?? connected[0];
+        const connected = devices.filter((d) => isConnected(d) && !connectedBefore.has(String(d.id)));
+        device = connected.find((d) => !known.has(String(d.id))) ?? connected[0];
       }
       if (device) {
         const found = device;

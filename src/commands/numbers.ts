@@ -15,7 +15,7 @@ import { ApiError, CliError, ExitCode, isRecord, usageError } from '../errors.js
 import { routes } from '../generated/routes.js';
 import type { Context } from '../context.js';
 import { table } from '../output.js';
-import { idList, positiveInt } from './common.js';
+import { idList, opaqueId } from './common.js';
 
 /** `provider` of a number (WhatsAppProviderEnum in accounts): 2 is the official WhatsApp Cloud API, the rest connect by QR. */
 const OFFICIAL_PROVIDER = 2;
@@ -62,7 +62,7 @@ export function deviceLabel(device: Record<string, unknown>): string {
 }
 
 export interface PickedDevice {
-  id: number;
+  id: string;
   /** The number as `GET /api/v1/devices` lists it; `null` when it came from `--device` (no listing needed). */
   device: Record<string, unknown> | null;
 }
@@ -72,7 +72,7 @@ export interface PickedDevice {
  * `qrOnly`, the only one connected by QR). Several: asks for `--device`. None: says how to connect one.
  */
 export async function pickDevice(ctx: Context, flag: string | undefined, options: { qrOnly: boolean }): Promise<PickedDevice> {
-  if (flag !== undefined) return { id: positiveInt(flag, '--device'), device: null };
+  if (flag !== undefined) return { id: opaqueId(flag, '--device', 'dev'), device: null };
   let devices: Record<string, unknown>[];
   try {
     devices = await listDevices(ctx);
@@ -85,7 +85,7 @@ export async function pickDevice(ctx: Context, flag: string | undefined, options
   const kind = options.qrOnly ? 'connected by QR' : 'connected';
   const candidates = devices.filter((d) => isConnected(d) && (!options.qrOnly || connectionOf(d) === 'qr'));
   const [only] = candidates;
-  if (candidates.length === 1 && only) return { id: Number(only.id), device: only };
+  if (candidates.length === 1 && only) return { id: String(only.id), device: only };
   if (candidates.length === 0) {
     throw new CliError(`The account has no number ${kind}.`, {
       exitCode: ExitCode.NOT_FOUND,
@@ -112,7 +112,7 @@ export async function numbersList(ctx: Context): Promise<void> {
       : table(
           ['id', 'alias', 'number', 'connection', 'connected', 'health', 'what the CLI reads'],
           rows.map((d) => [
-            d.id as number,
+            String(d.id),
             d.alias as string,
             d.number as string,
             d.connection === 'official' ? 'official' : 'QR',
@@ -125,13 +125,13 @@ export async function numbersList(ctx: Context): Promise<void> {
 }
 
 export async function numbersHealth(ctx: Context, ids: string[]): Promise<void> {
-  let targets: { id: number; label: string }[];
-  const wanted = idList(ids, 'number');
+  let targets: { id: string; label: string }[];
+  const wanted = idList(ids, 'number', 'dev');
   if (wanted.length) {
     targets = wanted.map((id) => ({ id, label: String(id) }));
   } else {
     const devices = (await listDevices(ctx)).filter((d) => connectionOf(d) === 'official');
-    targets = devices.map((d) => ({ id: Number(d.id), label: String(d.alias || d.number || d.id) }));
+    targets = devices.map((d) => ({ id: String(d.id), label: String(d.alias || d.number || d.id) }));
     if (targets.length === 0) {
       ctx.out.result({ numbers: [] }, () => 'The account has no official numbers: health and limit exist only for the official WhatsApp API.');
       return;
@@ -156,7 +156,7 @@ export async function numbersHealth(ctx: Context, ids: string[]): Promise<void> 
     table(
       ['id', 'state', 'quality', 'limit', 'per day', 'throughput', 'updated', 'stale'],
       results.map((r) => {
-        if (r.error === 'device_not_meta') return [r.device_id as number, 'not an official number', null, null, null, null, null, null];
+        if (r.error === 'device_not_meta') return [String(r.device_id), 'not an official number', null, null, null, null, null, null];
         const h = isRecord(r.health) ? r.health : {};
         return [
           r.device_id as number,
