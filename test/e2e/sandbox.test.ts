@@ -17,6 +17,8 @@ const SANDBOX_DIR = process.env.FUNNELCHAT_SANDBOX_DIR;
 const SANDBOX_KEY = '1|fc_live_sandbox';
 const CONTACTS = 12;
 const MESSAGES_EACH = 3;
+/** An opaque id: `<prefix>_` and 23 base62 characters (the sandbox generates and accepts the same format). */
+const OPAQUE_ID = /^[a-z]{3}_[A-Za-z0-9]{23}$/;
 
 interface Sandbox {
   listen(): Promise<{ url: string }>;
@@ -26,7 +28,16 @@ interface Sandbox {
 describe.skipIf(!SANDBOX_DIR)('end to end against funnelchat-sandbox', () => {
   let sandbox: Sandbox;
   let url = '';
+  let officialId = '';
+  let qrId = '';
+  let markedContactId = '';
+  let tagId = '';
   const env = () => ({ FUNNELCHAT_API_KEY: SANDBOX_KEY, FUNNELCHAT_BASE_URL: url });
+  const get = (path: string) =>
+    fetch(`${url}${path}`, { headers: { Authorization: `Bearer ${SANDBOX_KEY}` } }).then(async (r) => {
+      if (!r.ok) throw new Error(`${path}: ${r.status} ${await r.text()}`);
+      return r.json() as Promise<unknown>;
+    });
   const post = (path: string, body: unknown, auth = false) =>
     fetch(`${url}${path}`, {
       method: 'POST',
@@ -43,14 +54,22 @@ describe.skipIf(!SANDBOX_DIR)('end to end against funnelchat-sandbox', () => {
     };
     sandbox = module.createSandbox({ config: { port: 0, log: false, statusDelays: { sent: 0.05, delivered: 0.05, read: 0.05 } } });
     ({ url } = await sandbox.listen());
+    // The ids are the sandbox's own, opaque: they are read from its answers, never built here.
+    const devices = (await get('/api/v1/devices')) as { id: string; provider: number }[];
+    officialId = devices.find((d) => d.provider === 2)?.id ?? '';
+    qrId = devices.find((d) => d.provider !== 2)?.id ?? '';
     for (let i = 1; i <= CONTACTS; i++) {
       for (let k = 1; k <= MESSAGES_EACH; k++) {
-        await post('/_sandbox/inbound/message', { phone: `5491177${String(i).padStart(6, '0')}`, device_id: i % 2 ? 3 : 4, text: `mensaje ${k}`, name: `Persona ${i}` });
+        await post('/_sandbox/inbound/message', { phone: `5491177${String(i).padStart(6, '0')}`, device_id: i % 2 ? officialId : qrId, text: `mensaje ${k}`, name: `Persona ${i}` });
       }
     }
+    const contacts = (await get('/api/v1/contacts?perPage=100')) as { data: { id: string; phone: string }[] };
+    markedContactId = contacts.data.find((c) => c.phone === `5491177${String(2).padStart(6, '0')}`)?.id ?? '';
+    const tags = (await get('/api/v1/tags?perPage=100')) as { data: { id: string }[] };
+    tagId = tags.data[0]?.id ?? '';
     const field = await post('/api/v1/custom-fields', { name: 'ciudad', type: 0 }, true);
-    await post('/api/v1/contacts/attach-custom-field', [{ contactId: 2002, customFieldId: field.id, value: 'Rosario' }], true);
-    await post('/_sandbox/contacts/2002/tags', { tag_id: 4001 });
+    await post('/api/v1/contacts/attach-custom-field', [{ contactId: markedContactId, customFieldId: field.id, value: 'Rosario' }], true);
+    await post(`/_sandbox/contacts/${markedContactId}/tags`, { tag_id: tagId });
   }, 60_000);
 
   afterAll(async () => {
@@ -63,10 +82,11 @@ describe.skipIf(!SANDBOX_DIR)('end to end against funnelchat-sandbox', () => {
     expect(whoami.code).toBe(0);
     expect(whoami.stdout).not.toContain('"token"');
     const numbers = JSON.parse((await cli(['--json', 'numbers', 'list'], { fetch, cwd, env: env() })).stdout).numbers;
-    expect(numbers.map((n: { id: number; connection: string }) => [n.id, n.connection])).toEqual([
-      [3, 'official'],
-      [4, 'qr'],
+    expect(numbers.map((n: { id: string; connection: string }) => [n.id, n.connection])).toEqual([
+      [officialId, 'official'],
+      [qrId, 'qr'],
     ]);
+    for (const number of numbers) expect(number.id).toMatch(OPAQUE_ID);
   });
 
   it('contacts export with tags and custom fields', async () => {
@@ -76,7 +96,7 @@ describe.skipIf(!SANDBOX_DIR)('end to end against funnelchat-sandbox', () => {
     const csv = readFileSync(join(cwd, 'out', 'contacts.csv'), 'utf8').replace(/^\uFEFF/, '').split('\r\n').filter(Boolean);
     expect(csv[0]).toContain('custom_field:ciudad');
     expect(csv).toHaveLength(CONTACTS + 2); // header + the sandbox's example contact + ours
-    expect(csv.find((line) => line.startsWith('2002,'))).toMatch(/,Cliente,4001,Rosario$/);
+    expect(csv.find((line) => line.startsWith(`${markedContactId},`))).toMatch(new RegExp(`,Cliente,${tagId},Rosario$`));
   });
 
   it('conversations export in parts, with a manifest whose sha256 match', async () => {

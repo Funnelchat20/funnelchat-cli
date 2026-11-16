@@ -40,6 +40,8 @@ funnelchat api list difusiones                          # the functions about br
 funnelchat api broadcast.index --perPage 50             # call one: the answer, as JSON
 ```
 
+> **Ids are text since 0.5.0** (portal v0.7.0). See [Migrating to 0.5.0](#migrating-to-050).
+
 > **Status: v0.** The public API is at v0 and may change. The CLI uses only what the developer portal publishes, which is what an API key can use in production ([Where the spec comes from](#where-the-spec-comes-from)). The API reference is on the [developer portal](https://developers-portal.funnelchat.app/docs/).
 
 ## What it does and what it does not
@@ -164,7 +166,7 @@ It works once and expires at 2026-11-05T21:00:00+00:00; after tapping the button
 Whoever has the link can connect a number to your account: do not share it.
 
 Waiting for the number to connect… (Ctrl+C to stop)
-Connected: Support (5491100000002), id 4.
+Connected: Support (5491100000002), id dev_Ac7Ku7iIZDXJTjVq0n1B2cD.
 Send a first message: funnelchat send <phone> "Hello from Funnelchat"
 ```
 
@@ -197,7 +199,7 @@ funnelchat connect --us-number
 
 ```bash
 funnelchat numbers list            # the id, and whether it is connected
-funnelchat connect --device 4
+funnelchat connect --device dev_Ac7Ku7iIZDXJTjVq0n1B2cD
 ```
 
 - **Of its own type:** a number connected by QR gets a QR link (`type: "qr"`); an official one gets a Facebook link (`type: "meta"`, with its connection, `coexistence` or `dedicated`, as `allowed_connection_types`). The CLI lists your numbers first to know which, even with `--no-wait`.
@@ -211,7 +213,7 @@ Sends a text message to a phone and shows its status live, until it is `read`, i
 
 ```bash
 funnelchat send 5491122334455 "Hello from Funnelchat"
-funnelchat send "+54 9 11 2233-4455" "Hello" --device 4 --timeout 300
+funnelchat send "+54 9 11 2233-4455" "Hello" --device dev_Ac7Ku7iIZDXJTjVq0n1B2cD --timeout 300
 ```
 
 | Option | What it does |
@@ -232,7 +234,7 @@ The WhatsApp groups of a number connected by QR, as WhatsApp has them, and which
 
 ```bash
 funnelchat groups
-funnelchat groups --device 4
+funnelchat groups --device dev_Ac7Ku7iIZDXJTjVq0n1B2cD
 ```
 
 ```
@@ -287,9 +289,9 @@ funnelchat numbers list
 ```
 
 ```
-id  alias    number         connection  connected  health     what the CLI reads
-3   Sales    5491100000001  official    yes        AVAILABLE  contacts, conversations, templates, health and limit
-4   Support  5491100000002  QR          yes        -          contacts, conversations
+id                           alias    number         connection  connected  health     what the CLI reads
+dev_ABsza6Ialu1BCUyPFZ8WJvV  Sales    5491100000001  official    yes        AVAILABLE  contacts, conversations, templates, health and limit
+dev_Ac7Ku7iIZDXJTjVq0n1B2cD  Support  5491100000002  QR          yes        -          contacts, conversations
 ```
 
 The CLI works out "what the CLI reads" from the connection type (`provider`): official numbers (WhatsApp Cloud API) have templates and health; QR ones do not. With `--json` it comes as `cli_capabilities`. The `capabilities` field of each number is something else: what the API can do with it (message types, groups, the statuses it reports), exactly as `GET /api/v1/devices` returns it.
@@ -300,12 +302,12 @@ The health of your official numbers: state, quality, daily messaging limit and t
 
 ```bash
 funnelchat numbers health        # every official number
-funnelchat numbers health 3      # one
+funnelchat numbers health dev_ABsza6Ialu1BCUyPFZ8WJvV      # one
 ```
 
 ```
-id  state      quality  limit    per day  throughput  updated                    stale
-3   AVAILABLE  GREEN    TIER_1K  1,000    STANDARD    2026-10-16T10:00:00+00:00  no
+id                           state      quality  limit    per day  throughput  updated                    stale
+dev_ABsza6Ialu1BCUyPFZ8WJvV  AVAILABLE  GREEN    TIER_1K  1,000    STANDARD    2026-10-16T10:00:00+00:00  no
 ```
 
 ### `funnelchat contacts export`
@@ -314,7 +316,7 @@ All your contacts, with their tags and their custom fields, as CSV (the default)
 
 ```bash
 funnelchat contacts export --output-dir ./contacts
-funnelchat contacts export --format jsonl --tag 4001 --created-from 2026-10-01 --created-to 2026-10-15 -o ./new-clients
+funnelchat contacts export --format jsonl --tag tag_Bq3Zr8LmN0xWc5VdYe7TgHa --created-from 2026-10-01 --created-to 2026-10-15 -o ./new-clients
 ```
 
 ```
@@ -329,7 +331,7 @@ Manifest: /Users/ana/contacts/manifest.json (sha256 9f2c…)
 |---|---|
 | `-o`, `--output-dir <dir>` | A new or empty folder. By default, `funnelchat-contacts-export-<date>`. |
 | `--format csv\|jsonl` | CSV for spreadsheets (the default) or JSONL, one contact per line as the API returns it. |
-| `--tag <id>` | Only contacts with that tag. It can be repeated (`--tag 1 --tag 2`) or comma-separated. |
+| `--tag <id>` | Only contacts with that tag. It can be repeated (`--tag tag_Bq3Zr8LmN0xWc5VdYe7TgHa --tag tag_…`) or comma-separated. |
 | `--tag-mode any\|all\|exclude` | With several tags: any of them, all of them, or none of them. |
 | `--created-from`, `--created-to` | Created between those dates (`YYYY-MM-DD`, both whole days). They go together: the API needs both. |
 | `--only-with-phone` | Only contacts that can be messaged. |
@@ -339,7 +341,7 @@ Manifest: /Users/ana/contacts/manifest.json (sha256 9f2c…)
 - **The CSV** has a column per contact field (`id`, `name`, `phone`, `email`, `whatsapp_id`, `country_code`, `created_at`, `lead_score`…), `tags` (the names, separated by `; `) and `tag_ids`, and a `custom_field:<name>` column for each custom field of your account. It has a UTF-8 BOM and CRLF line endings, so Excel shows accented characters correctly.
 - **A cell that starts with `=`, `+`, `-` or `@`** (and is not a number) gets a `'` in front: your contacts write their own names, and this way your spreadsheet does not run them as formulas.
 - **It takes longer with tags and fields:** the contacts listing does not include them, so the CLI makes two more calls per contact. At the default pace (1 per second), 1,000 contacts with everything are about 2,010 calls, about 35 minutes. If you do not need them, `--no-tags --no-custom-fields` brings it down to 10 calls.
-- **The order** is by ascending `id`.
+- **The order** is the one of the listing, by `id` ascending. Ids are opaque, so the CLI compares none of them: a resume continues from the saved page.
 
 ### `funnelchat conversations export`
 
@@ -348,14 +350,14 @@ The messages of every conversation (each contact's history), in JSONL parts, wit
 ```bash
 funnelchat conversations export --output-dir ./conversations
 funnelchat conversations export --since 2026-10-01 -o ./october
-funnelchat conversations export --contact 2001 --contact 2002 -o ./two-clients
-funnelchat conversations export --device 3 --part-size 10000 -o ./sales
+funnelchat conversations export --contact ctc_ABsza6Ialu1BCUyPFZ8WJvV --contact ctc_AAOzYSKDiqHT4hWm9xLp3Qe -o ./two-clients
+funnelchat conversations export --device dev_ABsza6Ialu1BCUyPFZ8WJvV --part-size 10000 -o ./sales
 ```
 
 ```
 Exporting conversations to /Users/ana/october
   conversations: 340
-  conversation 1 of 340 (contact 2001): 128 messages · total 128
+  conversation 1 of 340 (contact ctc_ABsza6Ialu1BCUyPFZ8WJvV): 128 messages · total 128
   …
 Export complete: 340 conversations and 21,450 messages in 1 part, in /Users/ana/october.
 ```
@@ -390,12 +392,12 @@ october/
 Your WhatsApp templates, with their status and their number.
 
 ```bash
-funnelchat templates list --device 3 --status APPROVED
+funnelchat templates list --device dev_ABsza6Ialu1BCUyPFZ8WJvV --status APPROVED
 ```
 
 ```
-id  name     language  category  status    number
-45  welcome  es        UTILITY   APPROVED  3
+id                           name     language  category  status    number
+tpl_Dk4Xt9PzQ2vLm8Rb5NcYw1S  welcome  es        UTILITY   APPROVED  dev_ABsza6Ialu1BCUyPFZ8WJvV
 ```
 
 ### `funnelchat mac status`
@@ -443,13 +445,13 @@ Calls one function of `api list`. `funnelchat api <function> --help` says what i
 
 ```bash
 funnelchat api broadcast.index --perPage 50 --orderBy created_at --orderByMethod desc
-funnelchat api contact.show --contact 1001
+funnelchat api contact.show --contact ctc_ABsza6Ialu1BCUyPFZ8WJvV
 funnelchat api message.sendMessage --field device_id=3 --field phone=5491122334455 --field text="Hello from Funnelchat"
 funnelchat api tag.store --body @tag.json
-funnelchat api device.destroy --device 12               # asks before; with --yes it does not
+funnelchat api device.destroy --device dev_ABsza6Ialu1BCUyPFZ8WJvV               # asks before; with --yes it does not
 ```
 
-- **Path and query parameters are options**, with the name the spec gives them: `--contact 1001`, `--perPage 50`. One that takes several values is repeated: `--status 1 --status 2`. The path's are required.
+- **Path and query parameters are options**, with the name the spec gives them: `--contact ctc_ABsza6Ialu1BCUyPFZ8WJvV`, `--perPage 50`. One that takes several values is repeated: `--status 1 --status 2`. The path's are required.
 - **The JSON body** goes field by field with `--field key=value` (repeatable), or whole with `--body`: inline JSON, `@file.json` or `@-` (standard input); `--field` adds to `--body`. Each value takes the type the spec gives its field: `device_id=3` is the number 3, `phone=5491122334455` is text, `note=true` a boolean, `[…]` and `{…}` are JSON, and repeating a field that takes a list makes the list (`--field mentions=7 --field mentions=8`). A field the body does not have stops the call before anything is sent.
 - **The answer is printed as JSON**, as the API returns it. An answer without a body (`204`) prints nothing.
 - **A listing pages** as the spec says: `--page` or `--cursor` for one page, or `--all` for every page, in a single JSON array (it asks for the largest page the spec allows).
@@ -589,9 +591,18 @@ The named commands use only routes that exist in the public spec (`spec/routes-u
 - **Message metrics for the whole account** (sent, delivered and read per day). Per template they are there now: `funnelchat api message.templateMetrics --template <id>` (what Meta reports, day by day, up to 90 days).
 - **The key's own data** (its name and its permissions): `whoami` shows the account, not the key.
 
+## Migrating to 0.5.0
+
+The public API moved to **opaque ids**, with a direct cut and no transition (portal v0.7.0). Every id that was an integer is now text with a prefix by type: `ctc_ABsza6Ialu1BCUyPFZ8WJvV` is a contact (a 3-letter prefix, `_`, and 23 base62 characters). An integer, or an id of another type, answers as if it did not exist (404). The portal's «Identificadores» page has the table of prefixes.
+
+- **Commands:** `--device` takes a `dev_…`, `--contact` a `ctc_…` and `--tag` a `tag_…`; `numbers health` takes `dev_…`. The CLI refuses an integer or an id of another type with exit code 2, before any call. `funnelchat api` takes the ids of the spec as they are (`--contact ctc_…`).
+- **Save them as text.** Do not build them, do not convert them to a number and do not compare them by order: an id means nothing more than "this one". In your scripts, read them from the JSON (`funnelchat --json numbers list`) and pass them on as they came.
+- **The files of an export have text ids** (`id`, `contact_id`, `device_id`, the `tag_ids` column of the CSV). Do not resume with 0.5.0 an export started with 0.4.x (its saved state has integer ids): start it again.
+- **What did not change:** the `uid` of a group, the `uuid` of a campaign, the `uid` of a message, the ids of a WABA and `workspace_id`.
+
 ## Where the spec comes from
 
-`spec/funnelchat.json` is the spec the developer portal publishes, <https://developers-portal.funnelchat.app/specs/funnelchat.json>, that of portal v0.6.19 (sha256 `3a5f39f1…`): the operations and events the portal shows, which per the portal are those an API key can use in production. It has 253 operations and 57 webhook events, in three categories: Primer uso, Funciones de WhatsApp and Funciones de Funnelchat. It does not date the areas it is built from (its `x-fc-sources` carry no commit), so `spec/procedencia.json` records the URL and the portal's version, as declared, and the file's `sha256`. Since v0.6.15 it also declares, for each route, the errors of the common format (see [For scripts](#for-scripts)).
+`spec/funnelchat.json` is the spec the developer portal publishes, <https://developers-portal.funnelchat.app/specs/funnelchat.json>, that of portal v0.7.0 (sha256 `fadcd737…`): the operations and events the portal shows, which per the portal are those an API key can use in production. It has 253 operations and 57 webhook events, in three categories: Primer uso, Funciones de WhatsApp and Funciones de Funnelchat. It does not date the areas it is built from (its `x-fc-sources` carry no commit), so `spec/procedencia.json` records the URL and the portal's version, as declared, and the file's `sha256`. Since v0.6.15 it also declares, for each route, the errors of the common format (see [For scripts](#for-scripts)).
 
 Every route, parameter and body field the named commands use is in it, `GET /api/v1/me` of `login` and `whoami` included: `spec/pending.json` stays empty. The catalog of `funnelchat api` (`src/generated/operations.ts`) is generated from it, and from it alone.
 

@@ -35,7 +35,7 @@ Find a function, then call it:
   funnelchat api list difusiones               only those that mention a text (name, path, group, summary)
   funnelchat api broadcast.index --help        what one takes: its options and its body fields
   funnelchat api broadcast.index --perPage 50 --all
-  funnelchat api message.sendMessage --field device_id=3 --field phone=5491122334455 --field text="Hola"
+  funnelchat api message.sendMessage --field device_id=dev_ABsza6Ialu1BCUyPFZ8WJvV --field phone=5491122334455 --field text="Hola"
 
 Path and query parameters are options (--broadcast 12); the JSON body goes as --field key=value (repeatable)
 and/or --body @file.json. The answer is printed as JSON. A function that is not a GET is a write: it is sent

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { SPEC_SOURCE } from '../src/generated/routes.js';
 import { VERSION } from '../src/version.js';
-import { cli, FakeAccount, tempDir } from './helpers.js';
+import { cli, FakeAccount, oid, tempDir } from './helpers.js';
 
 const sha256 = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
 const lines = (path: string) => readFileSync(path, 'utf8').split('\n').filter((l) => l.trim() !== '').length;
@@ -67,7 +67,7 @@ describe('manifest', () => {
     expect(csv).toHaveLength(7);
     // The formula in contact 2's name is neutralized; the comma and quotes in the field are quoted.
     expect(csv[2]).toContain(`"'=HYPERLINK(""http://malo"")"`);
-    expect(csv[2]).toContain(',Cliente,1,');
+    expect(csv[2]).toContain(`,Cliente,${oid('tag', 1)},`);
     expect(csv[3]).toContain('"Rosario, ""centro"""');
   });
 });

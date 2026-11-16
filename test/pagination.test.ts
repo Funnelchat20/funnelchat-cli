@@ -5,7 +5,7 @@ import { routes } from '../src/generated/routes.js';
 import { ApiClient } from '../src/http/client.js';
 import { Pacer } from '../src/http/pacer.js';
 import { followingPage, nextPageQuery } from '../src/http/pagination.js';
-import { cli, FakeAccount, jsonl, TEST_KEY, tempDir } from './helpers.js';
+import { cli, FakeAccount, jsonl, oid, TEST_KEY, tempDir } from './helpers.js';
 
 function client(fetch: typeof globalThis.fetch): ApiClient {
   const sleep = async () => {};
@@ -42,8 +42,8 @@ describe('walking listings', () => {
   it('walks every page of a cursor listing, sending the cursor back', async () => {
     const account = new FakeAccount({ contacts: 1, messagesPerContact: () => 250 });
     const { fetch, calls } = account.fetch();
-    const ids: number[] = [];
-    for await (const message of client(fetch).all<{ id: number }>(routes.contactMessages, { path: { contactId: 1001 }, query: { perPage: 100 } })) ids.push(message.id);
+    const ids: string[] = [];
+    for await (const message of client(fetch).all<{ id: string }>(routes.contactMessages, { path: { contactId: oid('ctc', 1001) }, query: { perPage: 100 } })) ids.push(message.id);
     expect(ids).toHaveLength(250);
     expect(calls).toHaveLength(3);
     expect(calls[1]?.query.get('cursor')).toBeTruthy();
@@ -51,11 +51,11 @@ describe('walking listings', () => {
   });
 
   it('takes a plain array as one page with everything', async () => {
-    const account = new FakeAccount().hook((request) => (request.path === '/api/v1/devices' ? { body: [{ id: 3 }, { id: 4 }] } : undefined));
+    const account = new FakeAccount().hook((request) => (request.path === '/api/v1/devices' ? { body: [{ id: oid('dev', 3) }, { id: oid('dev', 4) }] } : undefined));
     const { fetch, calls } = account.fetch();
-    const ids: number[] = [];
-    for await (const device of client(fetch).all<{ id: number }>(routes.devicesList)) ids.push(device.id);
-    expect(ids).toEqual([3, 4]);
+    const ids: string[] = [];
+    for await (const device of client(fetch).all<{ id: string }>(routes.devicesList)) ids.push(device.id);
+    expect(ids).toEqual([oid('dev', 3), oid('dev', 4)]);
     expect(calls).toHaveLength(1);
   });
 });

@@ -2,7 +2,7 @@ import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { STATE_FILE } from '../src/export/session.js';
-import { cli, FakeAccount, jsonl, tempDir } from './helpers.js';
+import { cli, FakeAccount, jsonl, oid, tempDir } from './helpers.js';
 
 const failPage = (path: string, page: string) => (request: { path: string; query: URLSearchParams }) =>
   request.path === path && request.query.get('page') === page ? { status: 500, body: { message: 'Server Error' } } : undefined;
@@ -46,7 +46,7 @@ describe('contacts export --resume', () => {
     expect((await cli(['contacts', 'export', '-o', 'out', '--format', 'jsonl'], { fetch: account.fetch().fetch, cwd })).code).toBe(6);
 
     // As if the process died after writing part of a page but before saving the state.
-    appendFileSync(join(cwd, 'out', 'contacts.jsonl.part'), '{"id":1001,"name":"repetido"}\n{"id":1002');
+    appendFileSync(join(cwd, 'out', 'contacts.jsonl.part'), `{"id":"${oid('ctc', 1001)}","name":"repetido"}\n{"id":"${oid('ctc', 1002)}`);
     failing = false;
     expect((await cli(['contacts', 'export', '-o', 'out', '--resume'], { fetch: account.fetch().fetch, cwd })).code).toBe(0);
 
@@ -138,7 +138,7 @@ describe('conversations export --resume', () => {
     const account = new FakeAccount({ contacts: 3, messagesPerContact: () => 120 });
     const controller = new AbortController();
     account.hook((request) => {
-      if (request.path === '/api/v1/contacts/1002/messages') controller.abort();
+      if (request.path === `/api/v1/contacts/${oid('ctc', 1002)}/messages`) controller.abort();
       return undefined;
     });
     const first = await cli(['conversations', 'export', '-o', 'out'], { fetch: account.fetch().fetch, cwd, signal: controller.signal });

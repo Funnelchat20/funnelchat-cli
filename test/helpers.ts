@@ -54,15 +54,25 @@ export function fakeFetch(handler: (request: FakeRequest) => FakeReply) {
 
 // --- a fake account -----------------------------------------------------------------------------
 
+/** An opaque id of the public API: `<prefix>_` and 23 base62 characters. Built here from a counter so the tests can read it. */
+export function oid(prefix: string, n: number): string {
+  return `${prefix}_${String(n).padStart(23, '0')}`;
+}
+
+/** The counter an {@link oid} was built from. */
+export function oidN(id: string): number {
+  return Number(id.slice(4));
+}
+
 export interface FakeContact {
-  id: number;
+  id: string;
   name: string;
   phone: string;
   created_at: string;
-  tags: { id: number; name: string }[];
-  fields: { id: number; name: string; value: string }[];
+  tags: { id: string; name: string }[];
+  fields: { id: string; name: string; value: string }[];
   messages: number;
-  device_id: number;
+  device_id: string;
 }
 
 export class FakeAccount {
@@ -72,19 +82,19 @@ export class FakeAccount {
   hooks: Hook[] = [];
   requests = 0;
 
-  constructor(options: { contacts?: number; messagesPerContact?: (id: number) => number } = {}) {
+  constructor(options: { contacts?: number; messagesPerContact?: (id: string) => number } = {}) {
     const n = options.contacts ?? 5;
     for (let i = 1; i <= n; i++) {
-      const id = 1000 + i;
+      const id = oid('ctc', 1000 + i);
       this.contacts.push({
         id,
         name: i === 2 ? '=HYPERLINK("http://malo")' : `Contacto ${i}`,
         phone: `54911000${String(i).padStart(5, '0')}`,
         created_at: `2026-10-${String(1 + (i % 9)).padStart(2, '0')}T12:00:00.000000Z`,
-        tags: i % 2 === 0 ? [{ id: 1, name: 'Cliente' }] : [],
-        fields: i % 3 === 0 ? [{ id: 11, name: 'ciudad', value: 'Rosario, "centro"' }] : [],
+        tags: i % 2 === 0 ? [{ id: oid('tag', 1), name: 'Cliente' }] : [],
+        fields: i % 3 === 0 ? [{ id: oid('fld', 11), name: 'ciudad', value: 'Rosario, "centro"' }] : [],
         messages: options.messagesPerContact ? options.messagesPerContact(id) : 3,
-        device_id: i % 2 === 0 ? 3 : 4,
+        device_id: i % 2 === 0 ? oid('dev', 3) : oid('dev', 4),
       });
     }
   }
@@ -100,13 +110,13 @@ export class FakeAccount {
 
   messagesOf(contact: FakeContact): Record<string, unknown>[] {
     return Array.from({ length: contact.messages }, (_, k) => ({
-      id: contact.id * 1000 + k + 1,
+      id: oid('msg', oidN(contact.id) * 1000 + k + 1),
       contact_id: contact.id,
-      device_id: k % 2 === 0 ? contact.device_id : 99,
+      device_id: k % 2 === 0 ? contact.device_id : oid('dev', 99),
       text: `mensaje ${k + 1} de ${contact.id}`,
       own: k % 2,
       time: `2026-10-${String(1 + (k % 28)).padStart(2, '0')} 10:00:00`,
-    })).sort((a, b) => (b.id as number) - (a.id as number));
+    })).sort((a, b) => oidN(b.id as string) - oidN(a.id as string));
   }
 
   answer(request: FakeRequest): FakeReply {
@@ -128,7 +138,7 @@ export class FakeAccount {
       return this.paged(
         [
           {
-            id: 3,
+            id: oid('dev', 3),
             alias: 'Oficial',
             number: '5491100000001',
             provider: 2,
@@ -137,13 +147,13 @@ export class FakeAccount {
             health: { state: 'AVAILABLE', quality_level: 'GREEN' },
             capabilities: { messages: { text: true, templates: true }, groups: { send: false }, statuses: ['sent', 'delivered', 'read', 'failed'] },
           },
-          { id: 4, alias: 'QR', number: '5491100000002', provider: 1, connected: 1, active: 1, health: null },
+          { id: oid('dev', 4), alias: 'QR', number: '5491100000002', provider: 1, connected: 1, active: 1, health: null },
         ],
         q,
       );
     }
-    if ((m = /^\/api\/v1\/devices\/(\d+)\/health$/.exec(p))) {
-      if (m[1] === '4') return { status: 422, body: { error: 'device_not_meta', message: 'Este dispositivo no usa la API de WhatsApp Cloud de Meta.' } };
+    if ((m = /^\/api\/v1\/devices\/(dev_[A-Za-z0-9]{23})\/health$/.exec(p))) {
+      if (m[1] === oid('dev', 4)) return { status: 422, body: { error: 'device_not_meta', message: 'Este dispositivo no usa la API de WhatsApp Cloud de Meta.' } };
       return {
         body: {
           health: { state: 'AVAILABLE', quality_level: 'GREEN', messaging_limit_tier: 'TIER_1K', messaging_limit_per_day: 1000, last_fetched_at: '2026-10-16T10:00:00+00:00', stale: false },
@@ -154,31 +164,31 @@ export class FakeAccount {
         },
       };
     }
-    if (p === '/api/v1/custom-fields') return this.paged([{ id: 11, name: 'ciudad' }, { id: 12, name: 'plan' }], q);
+    if (p === '/api/v1/custom-fields') return this.paged([{ id: oid('fld', 11), name: 'ciudad' }, { id: oid('fld', 12), name: 'plan' }], q);
     if (p === '/api/v1/contacts') {
-      let list = [...this.contacts].sort((a, b) => a.id - b.id);
-      const tagIds = q.getAll('tag_ids[]').map(Number);
+      let list = [...this.contacts].sort((a, b) => oidN(a.id) - oidN(b.id));
+      const tagIds = q.getAll('tag_ids[]');
       if (tagIds.length) list = list.filter((c) => c.tags.some((t) => tagIds.includes(t.id)));
       return this.paged(list.map((c) => this.contactResource(c)), q);
     }
-    if ((m = /^\/api\/v1\/contacts\/(\d+)\/(tags|custom-fields)$/.exec(p))) {
-      const contact = this.contacts.find((c) => c.id === Number(m![1]));
+    if ((m = /^\/api\/v1\/contacts\/(ctc_[A-Za-z0-9]{23})\/(tags|custom-fields)$/.exec(p))) {
+      const contact = this.contacts.find((c) => c.id === m![1]);
       if (!contact) return { status: 404, body: { message: 'No query results.' } };
       return this.paged(m[2] === 'tags' ? contact.tags : contact.fields, q);
     }
     if (p === '/api/v1/conversations') {
       let list = this.contacts.filter((c) => c.messages > 0);
-      if (q.get('contactId')) list = list.filter((c) => c.id === Number(q.get('contactId')));
-      if (q.get('deviceId')) list = list.filter((c) => c.device_id === Number(q.get('deviceId')));
+      if (q.get('contactId')) list = list.filter((c) => c.id === q.get('contactId'));
+      if (q.get('deviceId')) list = list.filter((c) => c.device_id === q.get('deviceId'));
       if (q.get('orderBy') !== 'asc') list = [...list].reverse();
-      return this.cursored(list.map((c) => ({ contact_id: c.id, contact_name: c.name, contact_phone: Number(c.phone), id: c.id * 1000 + c.messages, text: 'último' })), q);
+      return this.cursored(list.map((c) => ({ contact_id: c.id, contact_name: c.name, contact_phone: Number(c.phone), id: oid('msg', oidN(c.id) * 1000 + c.messages), text: 'último' })), q);
     }
-    if ((m = /^\/api\/v1\/contacts\/(\d+)\/messages$/.exec(p))) {
-      const contact = this.contacts.find((c) => c.id === Number(m![1]));
+    if ((m = /^\/api\/v1\/contacts\/(ctc_[A-Za-z0-9]{23})\/messages$/.exec(p))) {
+      const contact = this.contacts.find((c) => c.id === m![1]);
       if (!contact) return { status: 404, body: { message: 'No existe el contacto.' } };
       return this.cursored(this.messagesOf(contact), q);
     }
-    if (p === '/api/v1/templates') return this.paged([{ id: 45, name: 'bienvenida', language_code: 'es', category: 'UTILITY', status: 'APPROVED', device_id: 3 }], q);
+    if (p === '/api/v1/templates') return this.paged([{ id: oid('tpl', 45), name: 'bienvenida', language_code: 'es', category: 'UTILITY', status: 'APPROVED', device_id: oid('dev', 3) }], q);
     if (p === '/api/v1/mac/status') return { body: { enforcement_enabled: true, current_count: 120, limit: 1000, remaining: 880, usage_percentage: 12, state: 'normal', grace: null, period_start: null } };
     return { status: 404, body: { error: 'route_not_found', message: 'La ruta no existe.' } };
   }
