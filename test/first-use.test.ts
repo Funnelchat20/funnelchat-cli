@@ -112,6 +112,28 @@ describe('first use', () => {
     expect(error.hint).toContain('Nothing was sent.');
   });
 
+  it('send without --device and several numbers connected sends nothing, and lists their ids', async () => {
+    const { fetch, calls } = new FakeAccount().fetch();
+    const human = await cli(['send', '5491122334455', "¡Hola, it's me!"], { fetch, cwd: tempDir(), tty: true });
+    expect(human.code).toBe(2);
+    expect(human.stderr).toContain('The account has 2 numbers connected: choose one with --device <id>. Their ids:');
+    expect(human.stderr).toMatch(new RegExp(`${oid('dev', 3)} +Oficial \\(5491100000001\\) +official`));
+    expect(human.stderr).toMatch(new RegExp(`${oid('dev', 4)} +QR \\(5491100000002\\) +QR`));
+    expect(human.stderr).toContain(`For example: funnelchat send 5491122334455 '¡Hola, it'\\''s me!' --device ${oid('dev', 3)}`);
+
+    const json = await cli(['--json', 'send', '5491122334455', 'Hola'], { fetch, cwd: tempDir() });
+    expect(json.code).toBe(2);
+    expect(JSON.parse(json.stderr).error).toMatchObject({
+      code: 'device_required',
+      exit_code: 2,
+      numbers: [
+        { id: oid('dev', 3), connection: 'official' },
+        { id: oid('dev', 4), connection: 'qr' },
+      ],
+    });
+    expect(calls.filter((c) => c.method !== 'GET')).toEqual([]);
+  });
+
   it('every send example of the README gives the CLI a phone it accepts', () => {
     const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
     const examples = readme.split('\n').filter((line) => line.startsWith('funnelchat send '));

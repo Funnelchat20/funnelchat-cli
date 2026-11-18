@@ -11,7 +11,7 @@
  *   DeviceHealthSummaryBuilder::build (state, quality_level, messaging_limit_tier,
  *   messaging_limit_per_day, last_fetched_at, stale…).
  */
-import { ApiError, CliError, ExitCode, isRecord, usageError } from '../errors.js';
+import { ApiError, CliError, ExitCode, isRecord } from '../errors.js';
 import { routes } from '../generated/routes.js';
 import type { Context } from '../context.js';
 import { table } from '../output.js';
@@ -67,11 +67,18 @@ export interface PickedDevice {
   device: Record<string, unknown> | null;
 }
 
+export interface PickOptions {
+  qrOnly: boolean;
+  /** The same command with `--device <id>`, to show when there are several numbers to choose from. */
+  retry?: (id: string) => string;
+}
+
 /**
  * The number a command acts from: `--device`, or else the only connected number of the account (with
- * `qrOnly`, the only one connected by QR). Several: asks for `--device`. None: says how to connect one.
+ * `qrOnly`, the only one connected by QR). Several: never picks one; a usage error (`device_required`, exit 2)
+ * that lists their ids, also in `--json` (`numbers`). None: says how to connect one.
  */
-export async function pickDevice(ctx: Context, flag: string | undefined, options: { qrOnly: boolean }): Promise<PickedDevice> {
+export async function pickDevice(ctx: Context, flag: string | undefined, options: PickOptions): Promise<PickedDevice> {
   if (flag !== undefined) return { id: opaqueId(flag, '--device', 'dev'), device: null };
   let devices: Record<string, unknown>[];
   try {
@@ -93,10 +100,14 @@ export async function pickDevice(ctx: Context, flag: string | undefined, options
       hint: `Connect one with \`funnelchat connect\`, or choose one with --device <id> (\`funnelchat numbers list\` shows them).`,
     });
   }
-  throw usageError(
-    `The account has ${candidates.length} numbers ${kind}: choose one with --device <id>.`,
-    candidates.map((d) => `${String(d.id)}  ${deviceLabel(d)}`).join('\n'),
-  );
+  const rows = candidates.map((d) => [String(d.id), deviceLabel(d), connectionOf(d) === 'official' ? 'official' : 'QR']);
+  const first = String(candidates[0]?.id ?? '<id>');
+  throw new CliError(`The account has ${candidates.length} numbers ${kind}: choose one with --device <id>. Their ids:`, {
+    exitCode: ExitCode.USAGE,
+    code: 'device_required',
+    hint: [...table(['id', 'number', 'connection'], rows), '', `For example: ${options.retry ? options.retry(first) : `--device ${first}`}`].join('\n'),
+    details: { numbers: candidates.map((d) => ({ id: String(d.id), alias: d.alias ?? null, number: d.number ?? null, connection: connectionOf(d) })) },
+  });
 }
 
 export async function numbersList(ctx: Context): Promise<void> {

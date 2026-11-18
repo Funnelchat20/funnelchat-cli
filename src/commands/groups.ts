@@ -27,7 +27,7 @@ const PAGE_SIZE = 100;
 const text = (value: unknown): string | null => (typeof value === 'string' && value !== '' ? value : typeof value === 'number' ? String(value) : null);
 
 export async function groupsList(ctx: Context, flags: GroupsFlags): Promise<void> {
-  const picked = await pickDevice(ctx, flags.device, { qrOnly: true });
+  const picked = await pickDevice(ctx, flags.device, { qrOnly: true, retry: (id) => `funnelchat groups list --device ${id}` });
   const groups: Record<string, unknown>[] = [];
   for await (const group of ctx.client().all<Record<string, unknown>>(routes.deviceGroups, { path: { device: picked.id }, query: { pageSize: PAGE_SIZE } })) {
     groups.push(group);
@@ -51,7 +51,7 @@ export async function groupsList(ctx: Context, flags: GroupsFlags): Promise<void
 export async function groupsFollow(ctx: Context, group: string, flags: GroupsFlags): Promise<void> {
   const uid = group.trim();
   if (uid === '') throw usageError('The group needs its uid, as `funnelchat groups` shows it.');
-  const picked = await pickDevice(ctx, flags.device, { qrOnly: true });
+  const picked = await pickDevice(ctx, flags.device, { qrOnly: true, retry: (id) => `funnelchat groups follow ${uid} --device ${id}` });
   const body = await ctx.client().post(routes.groupImport, { path: { group: uid }, body: { device_id: picked.id } });
   const data = isRecord(body) && isRecord(body.data) ? body.data : isRecord(body) ? body : {};
   const name = text(data.name) ? `"${text(data.name)}" (${text(data.uid) ?? uid})` : (text(data.uid) ?? uid);

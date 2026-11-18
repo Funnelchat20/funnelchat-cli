@@ -37,6 +37,11 @@ export function normalizePhone(value: string): string {
   return digits;
 }
 
+/** `'text'` for a POSIX shell: the example of a command to run again as it was typed. */
+function shellQuote(value: string): string {
+  return /^[\w@%+=:,./-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
 /** The message of an answer: `{message}` (the send), `{data}` or the resource itself (the read). */
 function messageOf(body: unknown): Record<string, unknown> | null {
   if (!isRecord(body)) return null;
@@ -54,7 +59,7 @@ export async function send(ctx: Context, phoneArg: string, words: string[], flag
   const text = words.join(' ');
   if (text.trim() === '') throw usageError('The message has no text.');
   const timeout = flags.timeout === undefined ? SEND_TIMEOUT_SECONDS : seconds(flags.timeout, '--timeout');
-  const picked = await pickDevice(ctx, flags.device, { qrOnly: false });
+  const picked = await pickDevice(ctx, flags.device, { qrOnly: false, retry: (id) => `funnelchat send ${phone} ${shellQuote(text)} --device ${id}` });
   const from = picked.device ? deviceLabel(picked.device) : `number ${picked.id}`;
   const client = ctx.client();
 
