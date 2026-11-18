@@ -124,7 +124,7 @@ describe('first use', () => {
     expect(human.stderr).toContain('The account has 2 numbers connected: choose one with --device <id>. Their ids:');
     expect(human.stderr).toMatch(new RegExp(`${oid('dev', 3)} +Oficial \\(5491100000001\\) +official`));
     expect(human.stderr).toMatch(new RegExp(`${oid('dev', 4)} +QR \\(5491100000002\\) +QR`));
-    expect(human.stderr).toContain(`For example: funnelchat send 5491122334455 '¡Hola, it'\\''s me!' --device ${oid('dev', 3)}`);
+    expect(human.stderr).toContain(`For example: funnelchat send 5491122334455 '¡Hola, it'\\''s me!' --device ${oid('dev', 4)}`);
 
     const json = await cli(['--json', 'send', '5491122334455', 'Hola'], { fetch, cwd: tempDir() });
     expect(json.code).toBe(2);

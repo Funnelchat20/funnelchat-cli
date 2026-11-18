@@ -101,7 +101,8 @@ export async function pickDevice(ctx: Context, flag: string | undefined, options
     });
   }
   const rows = candidates.map((d) => [String(d.id), deviceLabel(d), connectionOf(d) === 'official' ? 'official' : 'QR']);
-  const first = String(candidates[0]?.id ?? '<id>');
+  // The example uses a number by QR when there is one: free text reaches anyone from it, with no 24-hour window.
+  const first = String((candidates.find((d) => connectionOf(d) === 'qr') ?? candidates[0])?.id ?? '<id>');
   throw new CliError(`The account has ${candidates.length} numbers ${kind}: choose one with --device <id>. Their ids:`, {
     exitCode: ExitCode.USAGE,
     code: 'device_required',
