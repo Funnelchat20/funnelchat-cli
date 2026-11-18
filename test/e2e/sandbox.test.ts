@@ -194,7 +194,9 @@ describe.skipIf(!SANDBOX_URL && !SANDBOX_DIR)('end to end against funnelchat-san
     expect(error.code).toBe('device_required');
     expect(error.numbers.map((n: { id: string }) => n.id).sort()).toEqual([officialId, qrId].sort());
 
-    const sent = await cli(['--json', 'send', phone, '¡Hola!', '--device', qrId, '--timeout', '30'], { fetch: localFetch, cwd, env: env() });
+    // The sandbox moves the status on in real time: the waits between two reads are real here too.
+    const realSleep = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
+    const sent = await cli(['--json', 'send', phone, '¡Hola!', '--device', qrId, '--timeout', '30'], { fetch: localFetch, cwd, env: env(), sleep: realSleep });
     expect(sent.code, sent.stderr).toBe(0);
     expect(JSON.parse(sent.stdout)).toMatchObject({ device_id: qrId, phone, outcome: 'read' });
   });
