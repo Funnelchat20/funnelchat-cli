@@ -21,7 +21,7 @@
  *   in the area, is not configured for the route, and waiting does not change that. `502 origin_unreachable`
  *   and `502 provider_error` are, like any `5xx` of a read.
  */
-import { ApiError, ConnectionError, ExitCode, InterruptedError, parseRetryAfter } from '../errors.js';
+import { ApiError, ConnectionError, ExitCode, InterruptedError, nothingDone, parseRetryAfter } from '../errors.js';
 import type { HttpMethod } from '../generated/operations.js';
 import { USER_AGENT_PRODUCT, VERSION } from '../version.js';
 import { extractItems, followingPage, type PageQuery } from './pagination.js';
@@ -195,8 +195,9 @@ export class ApiClient {
         requestId,
       });
 
-      const retryable = response.status === 429 || (response.status >= 500 && !NOT_RETRIED.has(error.apiCode ?? ''));
-      if (!retriesAllowed && response.status >= 500 && error.apiCode !== 'edge_misconfigured' && error.apiCode !== 'gate_unavailable') {
+      const final = nothingDone(error.apiCode);
+      const retryable = !final && (response.status === 429 || (response.status >= 500 && !NOT_RETRIED.has(error.apiCode ?? '')));
+      if (!retriesAllowed && !final && response.status >= 500 && error.apiCode !== 'edge_misconfigured' && error.apiCode !== 'gate_unavailable') {
         error.hint = [WRITE_MAY_HAVE_ARRIVED, error.hint].filter(Boolean).join('\n');
       }
       if (!retryable) throw error;

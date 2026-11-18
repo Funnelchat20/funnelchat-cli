@@ -2,7 +2,7 @@
  * The commands of `funnelchat`. {@link run} takes everything from the outside world as arguments, so
  * tests run the real CLI with a fake `fetch`, fake streams and a temporary folder.
  */
-import { Command, CommanderError } from 'commander';
+import { Command, CommanderError, Option } from 'commander';
 import type { Context as ContextType, GlobalOptions, Io } from './context.js';
 import { Context } from './context.js';
 import { asInterrupted, ExitCode } from './errors.js';
@@ -122,16 +122,11 @@ export async function run(argv: string[], io: Io): Promise<number> {
   // --- first use: connect, send, groups ---------------------------------------------------------
   program
     .command('connect')
-    .description(
-      'Creates a link to connect a WhatsApp number by QR code, prints it and waits until the number connects. With --us-number the link gives a new US number of Funnelchat instead; with --device it reconnects a number you already have.',
-    )
+    .description('Creates a link to connect a WhatsApp number by QR code, prints it and waits until the number connects. With --device it reconnects a number you already have.')
     .option('--no-wait', 'Prints the link and ends, without waiting (for scripts and agents).')
     .option('--timeout <seconds>', `How long to wait for the number (${CONNECT_TIMEOUT_SECONDS} by default).`)
-    .option(
-      '--us-number',
-      'A new US number of Funnelchat on the official WhatsApp API, instead of a QR: the page asks to log in with Facebook, and Meta charges the messages (it needs a payment method in Meta).',
-    )
-    .option('--device <id>', 'Reconnects this number of your account with a link of its own type (QR or official); it never adds a number. Not with --us-number.')
+    .addOption(new Option('--us-number').hideHelp())
+    .option('--device <id>', 'Reconnects this number of your account, connected by QR, with a new QR; it never adds a number.')
     .action(action((ctx, command) => connect(ctx, command.opts() as ConnectFlags)));
 
   program
