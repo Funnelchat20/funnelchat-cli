@@ -157,7 +157,7 @@ export class ApiClient {
 
     for (let attempt = 0; ; attempt++) {
       const canRetry = retriesAllowed && attempt < maxRetries;
-      await opts.pacer.wait(opts.signal);
+      await this.#pace();
       this.requests++;
       const started = opts.clock();
       opts.log?.(`→ ${method} ${url}${attempt > 0 ? ` (attempt ${attempt + 1})` : ''}`);
@@ -211,6 +211,18 @@ export class ApiClient {
       const delay = retryAfter !== undefined ? Math.ceil(retryAfter * 1000) : backoffMs(attempt, random);
       opts.log?.(`  ${response.status}${error.apiCode ? ` ${error.apiCode}` : ''}: waiting ${formatSeconds(delay / 1000)}${retryAfter !== undefined ? ' (Retry-After)' : ''}`);
       await this.#sleep(delay);
+    }
+  }
+
+  /** The pacer's turn; Ctrl+C while waiting for it is an {@link InterruptedError}, never an unexpected error. */
+  async #pace(): Promise<void> {
+    const signal = this.#options.signal;
+    if (signal?.aborted) throw new InterruptedError();
+    try {
+      await this.#options.pacer.wait(signal);
+    } catch (error) {
+      if (signal?.aborted) throw new InterruptedError();
+      throw error;
     }
   }
 

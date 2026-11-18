@@ -151,4 +151,27 @@ describe('conversations export --resume', () => {
     expect(messages).toHaveLength(360);
     expect(new Set(messages.map((m) => m.id)).size).toBe(360);
   });
+
+  it('Ctrl+C while waiting for its turn to call the API exits with 130, not with an unexpected error', async () => {
+    const cwd = tempDir();
+    const account = new FakeAccount({ contacts: 6 });
+    const controller = new AbortController();
+    account.hook((request) => {
+      if (request.path === `/api/v1/contacts/${oid('ctc', 1002)}/tags`) controller.abort();
+      return undefined;
+    });
+    // A sleep that rejects once Ctrl+C was pressed, as setTimeout with a signal does.
+    const sleep = async (_ms: number, signal?: AbortSignal) => {
+      if (signal?.aborted) throw new Error('aborted');
+    };
+    const first = await cli(['--json', 'contacts', 'export', '-o', 'out'], { fetch: account.fetch().fetch, cwd, signal: controller.signal, sleep });
+    expect(first.code, first.stderr).toBe(130);
+    const error = JSON.parse(first.stderr.trim().split('\n').pop() ?? '{}') as { error: Record<string, unknown> };
+    expect(error.error).toMatchObject({ code: 'interrupted', exit_code: 130 });
+    expect(String(error.error.resume_command)).toContain('--resume');
+
+    account.hooks = [];
+    const resumed = await cli(['contacts', 'export', '-o', 'out', '--resume'], { fetch: account.fetch().fetch, cwd });
+    expect(resumed.code, resumed.stderr).toBe(0);
+  });
 });

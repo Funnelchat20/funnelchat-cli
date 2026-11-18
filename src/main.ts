@@ -5,7 +5,7 @@
 import { Command, CommanderError } from 'commander';
 import type { Context as ContextType, GlobalOptions, Io } from './context.js';
 import { Context } from './context.js';
-import { ExitCode } from './errors.js';
+import { asInterrupted, ExitCode } from './errors.js';
 import { login, logout, profilesList, profilesUse, whoami } from './commands/account.js';
 import { addApiCommands } from './commands/api.js';
 import { collect, explicitOptions } from './commands/common.js';
@@ -87,7 +87,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
       await fn(ctx, command, ...args.slice(0, -1));
       exitCode = ExitCode.OK;
     } catch (error) {
-      exitCode = ctx.out.error(error);
+      exitCode = ctx.out.error(io.signal?.aborted ? asInterrupted(error) : error);
     }
   };
 

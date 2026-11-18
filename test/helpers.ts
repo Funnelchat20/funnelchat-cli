@@ -264,6 +264,8 @@ export interface RunOptions {
   signal?: AbortSignal;
   /** Called on every sleep, with the milliseconds. */
   onSleep?: (ms: number) => void;
+  /** Called on every sleep after the clock advances, with the signal: it can reject, as a real sleep does on Ctrl+C. */
+  sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 }
 
 /** Runs the real CLI with fake streams, a clock that advances only when it sleeps, and no network. */
@@ -284,10 +286,11 @@ export async function cli(args: string[], options: RunOptions): Promise<RunResul
     },
     cwd: options.cwd,
     fetch: options.fetch,
-    sleep: async (ms) => {
+    sleep: async (ms, signal) => {
       sleeps.push(ms);
       now += ms;
       options.onSleep?.(ms);
+      await options.sleep?.(ms, signal);
     },
     clock: () => now,
     ...(options.signal ? { signal: options.signal } : {}),

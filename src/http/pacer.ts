@@ -1,3 +1,5 @@
+import { InterruptedError } from '../errors.js';
+
 /**
  * Keeps the CLI at a low, steady pace: at most `ratePerSecond` requests per second for the whole
  * process, retries included. The API's own limits are per minute and per user (the panel shares
@@ -28,16 +30,16 @@ export class Pacer {
   }
 }
 
-/** `setTimeout` as a promise, cancelled by `signal`. */
+/** `setTimeout` as a promise, cancelled by `signal` (Ctrl+C) with an {@link InterruptedError}. */
 export const realSleep: Sleep = (ms, signal) =>
   new Promise((resolve, reject) => {
     if (signal?.aborted) {
-      reject(new Error('aborted'));
+      reject(new InterruptedError());
       return;
     }
     const onAbort = () => {
       clearTimeout(timer);
-      reject(new Error('aborted'));
+      reject(new InterruptedError());
     };
     const timer = setTimeout(() => {
       signal?.removeEventListener('abort', onAbort);

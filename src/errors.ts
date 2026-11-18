@@ -292,6 +292,20 @@ export class InterruptedError extends CliError {
 }
 
 /**
+ * What a command that stopped after Ctrl+C reports: exit code 130 whatever the error that surfaced while
+ * stopping (an aborted wait or request), with the hint and details it had (how to resume an export).
+ */
+export function asInterrupted(error: unknown): CliError {
+  if (error instanceof CliError && error.exitCode === ExitCode.INTERRUPTED) return error;
+  const interrupted = new InterruptedError();
+  if (error instanceof CliError) {
+    interrupted.hint = error.hint;
+    Object.assign(interrupted.details, error.details);
+  }
+  return interrupted;
+}
+
+/**
  * Seconds to wait from a `Retry-After` header: delta-seconds (`"30"`) or an HTTP date.
  * `undefined` when absent or unreadable. (Copied from funnelchat-node feat/inicial @ de14b86,
  * src/core/errors.ts.)
