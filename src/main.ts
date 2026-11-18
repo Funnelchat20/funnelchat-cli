@@ -43,7 +43,7 @@ Exit codes:
 Environment variables:
   FUNNELCHAT_API_KEY     the key (wins over the saved profile, except with --profile)
   FUNNELCHAT_PROFILE     the profile to use
-  FUNNELCHAT_BASE_URL    the base URL
+  FUNNELCHAT_BASE_URL    the base URL: --base-url wins over it, and it wins over the profile's
   FUNNELCHAT_RATE        requests per second
   FUNNELCHAT_CONFIG_DIR  where to keep the configuration
 

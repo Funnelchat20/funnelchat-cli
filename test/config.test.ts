@@ -12,7 +12,8 @@ describe('credentials', () => {
   const config = { version: 1 as const, current_profile: 'trabajo', profiles: { trabajo: { api_key: OTHER_KEY, base_url: STAGING_URL }, default: { api_key: TEST_KEY } } };
 
   it('takes FUNNELCHAT_API_KEY first, then the active profile; an explicit --profile wins', () => {
-    expect(resolveCredentials({}, { FUNNELCHAT_API_KEY: TEST_KEY }, config)).toMatchObject({ apiKey: TEST_KEY, keySource: 'env', baseUrl: PRODUCTION_URL });
+    expect(resolveCredentials({}, { FUNNELCHAT_API_KEY: TEST_KEY }, config)).toMatchObject({ apiKey: TEST_KEY, keySource: 'env', baseUrl: STAGING_URL });
+    expect(resolveCredentials({}, { FUNNELCHAT_API_KEY: TEST_KEY, FUNNELCHAT_PROFILE: 'default' }, config)).toMatchObject({ keySource: 'env', baseUrl: PRODUCTION_URL });
     expect(resolveCredentials({}, {}, config)).toMatchObject({ apiKey: OTHER_KEY, keySource: 'profile', profile: 'trabajo', baseUrl: STAGING_URL });
     expect(resolveCredentials({ profile: 'default' }, { FUNNELCHAT_API_KEY: OTHER_KEY }, config)).toMatchObject({ apiKey: TEST_KEY, profile: 'default' });
     expect(resolveCredentials({}, { FUNNELCHAT_PROFILE: 'default' }, config)).toMatchObject({ apiKey: TEST_KEY });
@@ -20,7 +21,16 @@ describe('credentials', () => {
     expect(() => resolveCredentials({ profile: 'nada' }, {}, config)).toThrow(/has no saved key/);
   });
 
-  it('picks the base URL: --base-url, --staging, FUNNELCHAT_BASE_URL, profile, production', () => {
+  it('picks the base URL: --base-url, FUNNELCHAT_BASE_URL, the profile, production; also with the key in FUNNELCHAT_API_KEY', () => {
+    const sandbox = { version: 1 as const, current_profile: 'sandbox', profiles: { sandbox: { api_key: OTHER_KEY, base_url: 'http://127.0.0.1:4010' } } };
+    const env = { FUNNELCHAT_API_KEY: TEST_KEY };
+    // The key from the environment does not take the profile's base URL away: it stays on the sandbox.
+    expect(resolveCredentials({}, env, sandbox)).toMatchObject({ apiKey: TEST_KEY, keySource: 'env', baseUrl: 'http://127.0.0.1:4010' });
+    expect(resolveCredentials({}, { ...env, FUNNELCHAT_BASE_URL: 'http://127.0.0.1:4011' }, sandbox).baseUrl).toBe('http://127.0.0.1:4011');
+    expect(resolveCredentials({ baseUrl: 'http://127.0.0.1:4012' }, { ...env, FUNNELCHAT_BASE_URL: 'http://127.0.0.1:4011' }, sandbox).baseUrl).toBe('http://127.0.0.1:4012');
+    expect(resolveCredentials({}, env, { version: 1, profiles: {} }).baseUrl).toBe(PRODUCTION_URL);
+    expect(resolveCredentials({}, {}, sandbox)).toMatchObject({ apiKey: OTHER_KEY, keySource: 'profile', baseUrl: 'http://127.0.0.1:4010' });
+
     expect(resolveCredentials({ baseUrl: 'http://127.0.0.1:4010/' }, { FUNNELCHAT_API_KEY: TEST_KEY }, config).baseUrl).toBe('http://127.0.0.1:4010');
     expect(resolveCredentials({ staging: true }, { FUNNELCHAT_API_KEY: TEST_KEY }, config).baseUrl).toBe(STAGING_URL);
     expect(resolveCredentials({}, { FUNNELCHAT_API_KEY: TEST_KEY, FUNNELCHAT_BASE_URL: 'https://otra.example.com' }, config).baseUrl).toBe('https://otra.example.com');
@@ -69,6 +79,18 @@ describe('config file', () => {
     const result = await cli(['whoami'], { fetch: new FakeAccount().fetch().fetch, cwd, env: { FUNNELCHAT_API_KEY: undefined } });
     expect(result.code).toBe(0);
     expect(result.stderr).toContain('chmod 600');
+  });
+
+  it('a key in FUNNELCHAT_API_KEY goes to the base URL the profile was saved with, never to production', async () => {
+    const cwd = tempDir();
+    const account = new FakeAccount();
+    const login = await cli(['login', '--base-url', 'http://127.0.0.1:4010'], { fetch: account.fetch().fetch, cwd, env: { FUNNELCHAT_API_KEY: undefined }, stdin: TEST_KEY });
+    expect(login.code, login.stderr).toBe(0);
+    const { fetch, calls } = account.fetch();
+    const whoami = await cli(['--json', 'whoami'], { fetch, cwd, env: { FUNNELCHAT_API_KEY: TEST_KEY } });
+    expect(whoami.code, whoami.stderr).toBe(0);
+    expect(JSON.parse(whoami.stdout)).toMatchObject({ key_source: 'env', base_url: 'http://127.0.0.1:4010' });
+    expect(calls.map((c) => c.url.origin)).toEqual(['http://127.0.0.1:4010']);
   });
 
   it('logout removes the key; profiles use switches the active profile', async () => {
