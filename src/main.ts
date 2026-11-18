@@ -30,7 +30,8 @@ const EXIT_CODES_HELP = `
 Exit codes:
   0    all good
   1    unexpected error
-  2    wrong usage (invalid option or value)
+  2    wrong usage (invalid option or value), or something that cannot be undone and has no terminal to
+       confirm it and no --yes (code confirmation_required): nothing was sent
   3    no key, a key the API rejects (401) or a missing permission (403)
   4    not found in your account (404)
   5    an API limit the CLI does not wait for (daily cap or a long Retry-After): it can be resumed

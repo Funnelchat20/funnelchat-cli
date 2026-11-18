@@ -5,8 +5,10 @@
  *
  * The rules are the rest of the CLI's: the key as always; anything but a `GET` is a write, sent once and never
  * retried; an error carries its `X-Request-Id`; a listing pages with `--page`/`--cursor`, or `--all`.
- * What cannot be undone (`x-fc-destructive: true`), and a `DELETE` the spec does not mark either way, asks
- * for confirmation first, unless `--yes`.
+ * What cannot be undone asks for confirmation first, unless `--yes`: what the spec marks with `x-fc-destructive:
+ * true`, and, as a safety net in case the spec misses one, a `DELETE` it does not mark either way, a function
+ * named `.destroy…`, `.delete…` or `.cancel…`, and a body with `all` set to true. Without a terminal and without
+ * `--yes` it is refused with exit code 2 and `confirmation_required`: nothing is sent.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -186,7 +188,8 @@ export async function apiCall(ctx: Context, op: OperationInfo, input: CallInput)
     throw usageError('--all starts from the first page: it does not go with --page or --cursor.');
   }
   const client = ctx.client();
-  if (asksConfirmation(op) && !input.yes) await confirm(ctx, op, input.path);
+  const reason = confirmationReason(op, body);
+  if (reason !== null && !input.yes) await confirm(ctx, op, input.path, reason);
 
   if (!input.all) {
     const result = await client.request(op, { path: input.path, query: input.query, ...(body !== undefined ? { body } : {}) });
@@ -208,39 +211,74 @@ export async function apiCall(ctx: Context, op: OperationInfo, input: CallInput)
   ctx.out.result(items, () => JSON.stringify(items, null, 2));
 }
 
-/** What asks before it is sent: what the spec marks as not undoable, and a `DELETE` it does not mark either way. */
-export function asksConfirmation(op: OperationInfo): boolean {
-  return op.destructive === true || (op.destructive === null && op.method === 'DELETE');
+/** A function named as a deletion or a cancellation: `contact.destroy`, `messageTemplate.delete`, `broadcast.cancel`, `device.deleteMessageQueue`… */
+const DELETES_BY_NAME = /\.(destroy|delete|cancel)([A-Z]|$)/;
+
+/** Why a call asks for confirmation, or `null` when it does not. */
+type ConfirmationReason = 'destructive' | 'unmarked_delete' | 'by_name' | 'all';
+
+/**
+ * What asks before it is sent, and why: what the spec marks as not undoable (`x-fc-destructive: true`); and, as a
+ * safety net, a `DELETE` the spec does not mark either way, a function named `.destroy…`, `.delete…` or `.cancel…`
+ * (even if the spec marks it `false`) and a body with `all` set to true (it acts on every record that matches).
+ */
+export function confirmationReason(op: OperationInfo, body?: unknown): ConfirmationReason | null {
+  if (op.destructive === true) return 'destructive';
+  if (op.destructive === null && op.method === 'DELETE') return 'unmarked_delete';
+  if (DELETES_BY_NAME.test(op.name)) return 'by_name';
+  if (isRecord(body) && isTrue(body.all)) return 'all';
+  return null;
 }
 
-async function confirm(ctx: Context, op: OperationInfo, path: Record<string, string>): Promise<void> {
+/** Whether `funnelchat api list` says the function asks for confirmation (a body with `all` is only known at call time). */
+export function asksConfirmation(op: OperationInfo): boolean {
+  return confirmationReason(op) !== null;
+}
+
+function isTrue(value: unknown): boolean {
+  return value === true || value === 1 || (typeof value === 'string' && /^(true|1)$/i.test(value.trim()));
+}
+
+const WHY: Record<ConfirmationReason, string> = {
+  destructive: 'cannot be undone',
+  unmarked_delete: 'deletes, and the spec does not say it can be undone',
+  by_name: 'deletes or cancels, and may not be undone',
+  all: 'acts on every record that matches (all=true), and may not be undone',
+};
+
+async function confirm(ctx: Context, op: OperationInfo, path: Record<string, string>, reason: ConfirmationReason): Promise<void> {
   const target = `${op.method} ${interpolatePath(op.path, path)}`;
-  const why = op.destructive === true ? 'cannot be undone' : 'deletes, and the spec does not say it can be undone';
+  const why = WHY[reason];
   if (!ctx.io.stdin.isTTY) {
     throw new CliError(`${op.name} (${op.summary ?? target}) ${why}: it needs a confirmation, and there is no terminal to give it.`, {
       exitCode: ExitCode.USAGE,
       code: 'confirmation_required',
       hint: `Nothing was sent. If you are sure, run it again with --yes (${target}).`,
+      details: { function: op.name, route: target },
     });
   }
-  const answer = await promptLine(ctx.io.stdin, ctx.io.stderr, `${op.summary ?? op.name}: ${target}\nIt ${why}. Type "yes" to go ahead: `);
+  const answer = await promptLine(ctx.io.stdin, ctx.io.stderr, `${op.summary ?? op.name}: ${target}\nIt ${why}. Type "yes" to go ahead: `, ctx.io.signal);
   if (!['yes', 'y'].includes(answer.trim().toLowerCase())) {
     throw new CliError('Not confirmed: nothing was sent.', { exitCode: ExitCode.USAGE, code: 'not_confirmed' });
   }
 }
 
-/** Reads one line from the terminal (it shows what is typed). */
-function promptLine(stdin: Stdin, stderr: { write(chunk: string): unknown }, question: string): Promise<string> {
+/** Reads one line from the terminal (it shows what is typed). Ctrl+C ends it with an {@link InterruptedError}. */
+function promptLine(stdin: Stdin, stderr: { write(chunk: string): unknown }, question: string, signal?: AbortSignal): Promise<string> {
   stderr.write(question);
   return new Promise((resolve, reject) => {
     let value = '';
+    const onAbort = () => finish(new InterruptedError());
     const finish = (error?: Error) => {
+      signal?.removeEventListener('abort', onAbort);
       stdin.pause();
       stdin.removeAllListeners('data');
       stdin.removeAllListeners('end');
       if (error) reject(error);
       else resolve(value);
     };
+    if (signal?.aborted) return finish(new InterruptedError());
+    signal?.addEventListener('abort', onAbort, { once: true });
     stdin.setEncoding?.('utf8');
     stdin.on('data', (chunk) => {
       for (const ch of String(chunk)) {
@@ -382,12 +420,11 @@ function operationHelp(op: OperationInfo): string {
   if (place) lines.push(`Group: ${place}`);
   if (op.permission) lines.push(`Permission: ${op.permission}${op.domain ? ` (served by ${op.domain})` : ''}`);
   if (op.method !== 'GET') lines.push('A write: it is sent once and never retried on its own.');
-  if (asksConfirmation(op)) {
-    lines.push(
-      op.destructive === true
-        ? 'It cannot be undone: it asks for confirmation first, and without a terminal it needs --yes.'
-        : 'It deletes, and the spec does not say it can be undone: it asks for confirmation first, and without a terminal it needs --yes.',
-    );
+  const reason = confirmationReason(op);
+  if (reason !== null) {
+    lines.push(`It ${WHY[reason]}: it asks for confirmation first, and without a terminal it needs --yes.`);
+  } else if (op.body?.fields.some((f) => f.name === 'all')) {
+    lines.push('With all=true it acts on every record that matches: it asks for confirmation first, and without a terminal it needs --yes.');
   }
   if (op.pagination !== 'none') {
     const one = op.pagination === 'page' ? '--page <n>' : '--cursor <next_cursor>';
