@@ -30,7 +30,7 @@ describe('generated route table', () => {
   });
 
   it('knows the domain, the permission and the pagination of each route', () => {
-    expect(routes.devicesList).toMatchObject({ domain: 'accounts', permission: 'accounts:read', pagination: 'page', plainArray: true });
+    expect(routes.devicesList).toMatchObject({ domain: 'accounts', permission: 'accounts:read', pagination: 'page', plainArray: false });
     expect(routes.contactsList).toMatchObject({ domain: 'conversations', pagination: 'page', perPageMax: 100 });
     expect(routes.contactMessages).toMatchObject({ domain: 'conversations', pagination: 'cursor' });
     expect(routes.conversationsList).toMatchObject({ pagination: 'cursor' });

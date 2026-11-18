@@ -24,11 +24,11 @@ export interface RouteInfo {
 
 /** Where spec/funnelchat.json came from (spec/procedencia.json). */
 export const SPEC_SOURCE = {
-  "sha256": "fadcd73731cba99d0b49adfec7b5799d7318fe99944c88282a444362d869e576",
+  "sha256": "4a8fbaee9d8b251fd0df44b5a6ae5e4a55ca4993569a5af6834c09b31a4bb423",
   "url": "https://developers-portal.funnelchat.app/specs/funnelchat.json",
-  "repository": null,
-  "branch": null,
-  "commit": null,
+  "repository": "https://github.com/Funnelchat20/developers-portal.git",
+  "branch": "docs/integracion-17nov",
+  "commit": "fe4df8d241a2e5b8591d352930be1a08642b5740",
   "paths": 209
 } as const;
 
@@ -55,7 +55,7 @@ export const routes = {
     "domain": "accounts",
     "permission": "accounts:read",
     "pagination": "page",
-    "plainArray": true,
+    "plainArray": false,
     "perPageMax": 100,
     "query": [
       "perPage"

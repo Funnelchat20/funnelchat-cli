@@ -18,7 +18,7 @@ describe('funnelchat api', () => {
       path: '/api/v1/broadcasts',
       summary: 'Ver tus difusiones',
       category: 'funnelchat',
-      category_title: 'Funciones de Funnelchat',
+      category_title: 'Funciones de la plataforma',
       group: 'Difusiones',
       pagination: 'page',
     });
@@ -53,11 +53,11 @@ describe('funnelchat api', () => {
     let fail = false;
     const { fetch, calls } = fakeFetch(() => (fail ? { status: 500, body: { message: 'Error interno' } } : { status: 201, body: { data: { id: 99 } } }));
     const cwd = tempDir();
-    const fields = ['--field', `device_id=${oid('dev', 3)}`, '--field', 'phone=5491122334455', '--field', 'text=Hola', '--field', 'mentions=7', '--field', 'mentions=8'];
+    const fields = ['--field', `device_id=${oid('dev', 3)}`, '--field', 'phone=5491122334455', '--field', 'text=Hola', '--field', `mentions=${oid('usr', 7)}`, '--field', `mentions=${oid('usr', 8)}`];
     const sent = await cli(['api', 'message.sendMessage', ...fields], { fetch, cwd });
     expect(sent.code, sent.stderr).toBe(0);
     expect(JSON.parse(sent.stdout)).toEqual({ data: { id: 99 } });
-    expect(calls[0]).toMatchObject({ method: 'POST', path: '/api/v1/message/send-message', body: { device_id: oid('dev', 3), phone: '5491122334455', text: 'Hola', mentions: [7, 8] } });
+    expect(calls[0]).toMatchObject({ method: 'POST', path: '/api/v1/message/send-message', body: { device_id: oid('dev', 3), phone: '5491122334455', text: 'Hola', mentions: [oid('usr', 7), oid('usr', 8)] } });
 
     writeFileSync(join(cwd, 'body.json'), JSON.stringify({ device_id: oid('dev', 3), phone: '5491122334455', text: 'Hola' }));
     const fromFile = await cli(['api', 'message.sendMessage', '--body', '@body.json', '--field', 'text=Chau'], { fetch, cwd });
