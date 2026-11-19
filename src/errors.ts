@@ -143,7 +143,7 @@ function withRequestId(hint: string | undefined, requestId: string | undefined):
  * and communities v2.35.7 (following a group), as the full unified spec of developers-portal 99928866 and funnelchat-node
  * feat/seguir-un-grupo @ f913feb (src/core/error-codes.ts) list them.
  */
-export const KNOWN_API_ERRORS: Readonly<Record<string, { message: string; hint?: string; keepApiMessage?: true }>> = {
+export const KNOWN_API_ERRORS: Readonly<Record<string, { message: string; hint?: string; keepApiMessage?: true; nothingDone?: true }>> = {
   // any route
   payment_required: {
     message: 'The payment of the account or of the workspace is overdue: the API does not take calls from it until it is settled.',
@@ -178,20 +178,28 @@ export const KNOWN_API_ERRORS: Readonly<Record<string, { message: string; hint?:
   },
   device_unavailable: { message: 'The number is not connected or cannot send now.', hint: 'Nothing was sent. Check it with `funnelchat numbers list`.' },
   not_sent: { message: 'The message could not be registered for sending.', hint: 'Nothing was sent.' },
-  mac_lockout_24h: { message: 'The account used up its monthly active contacts (MACs) and is locked for 24 hours.', hint: 'Nothing was sent. Retrying does not help: see `funnelchat mac status`.' },
-  mac_limit_reached: { message: 'The account used up its monthly active contacts (MACs).', hint: 'Nothing was sent. Retrying does not help: see `funnelchat mac status`.' },
+  mac_lockout_24h: {
+    message: 'The account used up its monthly active contacts (MACs) and is locked for 24 hours.',
+    hint: 'Nothing was sent. Retrying does not help: see `funnelchat mac status`.',
+    nothingDone: true,
+  },
+  mac_limit_reached: { message: 'The account used up its monthly active contacts (MACs).', hint: 'Nothing was sent. Retrying does not help: see `funnelchat mac status`.', nothingDone: true },
   // connect
   numbers_not_included: { message: 'Your plan does not include WhatsApp numbers.', hint: 'No link was created. Change the plan from the panel.' },
   number_limit_reached: { message: 'Every number of your plan is in use.', hint: 'No link was created. Delete a number or change the plan from the panel.' },
   connect_not_allowed: { message: 'Only the owner of the account can connect numbers, and this key is not the owner\'s.', hint: 'No link was created.' },
   too_many_open_links: { message: 'The account already has 20 connect links open.', hint: 'No link was created. They end when they are used or expire.' },
-  // connect --device and --us-number
+  // connect --device
   invalid_reference_device: { message: 'That number is not one of your account\'s numbers.', hint: 'No link was created. See them with `funnelchat numbers list`.' },
   connection_type_mismatch: {
     message: 'The link is not of the number\'s type: a number connected by QR reconnects by QR, and an official one through Meta.',
     hint: 'No link was created. The number may have changed since it was listed: check it with `funnelchat numbers list` and try again.',
   },
-  meta_connect_disabled: { message: 'Connecting official numbers by link is not enabled right now.', hint: 'No link was created. Try again later.' },
+  meta_connect_disabled: {
+    message: 'Connecting through Meta by link (an official number or a US number) is not available yet.',
+    hint: 'No link was created. A number by QR can be connected: `funnelchat connect`.',
+    nothingDone: true,
+  },
   // groups
   provider_unsupported: { message: 'The number cannot do that: only a number connected by QR can follow groups.' },
   group_not_found: {
@@ -206,6 +214,14 @@ export const KNOWN_API_ERRORS: Readonly<Record<string, { message: string; hint?:
   import_rate_limited: { message: 'This number already followed 5 groups in the last minute.' },
   import_in_progress: { message: 'That group is being imported right now.', hint: 'Try again in a few seconds.' },
 };
+
+/**
+ * Codes that say for sure that nothing was done and that waiting does not change it: their error never gets
+ * «it may have arrived» nor «wait and try again», which would contradict their own hint.
+ */
+export function nothingDone(apiCode: string | undefined): boolean {
+  return apiCode !== undefined && Object.hasOwn(KNOWN_API_ERRORS, apiCode) && KNOWN_API_ERRORS[apiCode]?.nothingDone === true;
+}
 
 function exitCodeOf(status: number): ExitCodeValue {
   if (status === 401 || status === 403) return ExitCode.AUTH;
@@ -289,6 +305,20 @@ export class InterruptedError extends CliError {
   constructor() {
     super('Interrupted.', { exitCode: ExitCode.INTERRUPTED, code: 'interrupted' });
   }
+}
+
+/**
+ * What a command that stopped after Ctrl+C reports: exit code 130 whatever the error that surfaced while
+ * stopping (an aborted wait or request), with the hint and details it had (how to resume an export).
+ */
+export function asInterrupted(error: unknown): CliError {
+  if (error instanceof CliError && error.exitCode === ExitCode.INTERRUPTED) return error;
+  const interrupted = new InterruptedError();
+  if (error instanceof CliError) {
+    interrupted.hint = error.hint;
+    Object.assign(interrupted.details, error.details);
+  }
+  return interrupted;
 }
 
 /**

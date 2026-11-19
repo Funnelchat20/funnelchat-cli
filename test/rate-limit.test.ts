@@ -99,6 +99,17 @@ describe('only reads are retried', () => {
     await expect(client.get(write)).rejects.toBeInstanceOf(ApiError);
     expect(calls).toHaveLength(1);
   });
+
+  it('a MAC lockout says once that retrying does not help: no «wait and try again»', async () => {
+    const { fetch, calls } = fakeFetch(() => ({ status: 429, body: { error: 'mac_lockout_24h', message: 'Bloqueada.' }, headers: { 'retry-after': '60' } }));
+    const sleep = async () => {};
+    const client = new ApiClient({ apiKey: TEST_KEY, baseUrl: 'https://api.funnelchat.com', fetch, pacer: new Pacer(1000, Date.now, sleep), sleep, clock: Date.now });
+    const error = (await client.post(routes.sendMessage, { body: {} }).catch((e: unknown) => e)) as ApiError;
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.hint).toContain('Retrying does not help');
+    expect(error.hint).not.toContain('try again');
+    expect(calls).toHaveLength(1);
+  });
 });
 
 describe('pace', () => {

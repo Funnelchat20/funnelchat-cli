@@ -1,33 +1,33 @@
 {
   "description": "Where spec/funnelchat.json came from. Written by `npm run generate -- --spec <file>`; do not edit it by hand.",
   "file": "spec/funnelchat.json",
-  "sha256": "fadcd73731cba99d0b49adfec7b5799d7318fe99944c88282a444362d869e576",
-  "bytes": 977912,
+  "sha256": "4a8fbaee9d8b251fd0df44b5a6ae5e4a55ca4993569a5af6834c09b31a4bb423",
+  "bytes": 1447302,
   "source": {
-    "repository": null,
-    "path": null,
-    "branch": null,
-    "commit": null,
-    "commit_date": null,
-    "file_tracked_in_git": null,
-    "tracked_files_clean": null,
-    "file_modified_at": "2026-11-16T20:07:13.502Z",
+    "repository": "https://github.com/Funnelchat20/developers-portal.git",
+    "path": "public/specs/funnelchat.json",
+    "branch": "docs/integracion-17nov",
+    "commit": "fe4df8d241a2e5b8591d352930be1a08642b5740",
+    "commit_date": "2026-11-18T10:15:03-05:00",
+    "file_tracked_in_git": false,
+    "tracked_files_clean": true,
+    "file_modified_at": "2026-11-18T15:46:28.340Z",
     "url": "https://developers-portal.funnelchat.app/specs/funnelchat.json",
-    "portal_version": "v0.7.0",
+    "portal_version": "v0.7.0-35-gfe4df8d",
     "declared": [
       "url",
       "portal_version"
     ],
     "declared_note": "The fields in `declared` were given on the command line (`--source`), not read from git: the file was imported from outside a checkout of its repository."
   },
-  "imported_at": "2026-11-16T20:07:47.826Z",
+  "imported_at": "2026-11-18T15:48:22.030Z",
   "spec": {
     "openapi": "3.1.0",
     "title": "Funnelchat API",
     "version": "v0",
     "paths": 209,
     "operations": 253,
-    "webhooks": 57,
+    "webhooks": 58,
     "domains": [
       {
         "domain": "conversations",

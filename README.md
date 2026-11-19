@@ -16,14 +16,22 @@ Sending to 5491122334455 from Support (5491100000002)…
   sent       after 1 s
   delivered  after 2 s
   read       after 14 s
-Message 98765 to 5491122334455: read 14 s after sending.
+Message msg_Ac7Ku7iIZDXJTjVq0n1B2cD to 5491122334455: read 14 s after sending.
 ```
 
 The phone does not need to be a contact yet: the send creates it. Send it to your own phone to see it arrive.
 
+**Trying it without an account?** The [sandbox](https://github.com/Funnelchat20/funnelchat-sandbox) imitates the API on your machine, with two numbers already connected, so `send` needs to know which one:
+
+```bash
+npx @funnelchat-hq/sandbox                     # in another terminal: it listens on http://127.0.0.1:4010
+export FUNNELCHAT_API_KEY='1|fc_live_sandbox' FUNNELCHAT_BASE_URL=http://127.0.0.1:4010
+funnelchat send 5491100000000 "¡Hola!" --device dev_Sandbox0QR0000000000000
+```
+
 **Handing it to an AI agent?** Agents are good at running commands. Three things help them: `funnelchat api list --json` gives them every function of the API to call ([Using it from an AI agent](#using-it-from-an-ai-agent)), `funnelchat connect --no-wait` prints the link and ends at once (the agent shows it to you, and `funnelchat numbers list` says when the number is connected), and `--json` on any command gives one JSON document to read.
 
-**Already have a number in Funnelchat?** Look first with `funnelchat numbers list`. If one is connected, use it: `send` takes it. If it is disconnected, `funnelchat connect --device <id>` reconnects that same number, without adding another. With none, connect yours by QR (`funnelchat connect`) or ask for a US number of Funnelchat on the official WhatsApp API (`funnelchat connect --us-number`).
+**Already have a number in Funnelchat?** Look first with `funnelchat numbers list`. If one is connected, use it: `send` takes it. If it is disconnected and it connects by QR, `funnelchat connect --device <id>` reconnects that same number, without adding another. With none, connect yours by QR (`funnelchat connect`).
 
 The same key also **follows your WhatsApp groups** (`funnelchat groups`), **exports your conversations and your contacts** to files you can verify, and checks your numbers, templates and MACs:
 
@@ -47,7 +55,7 @@ funnelchat api broadcast.index --perPage 50             # call one: the answer, 
 ## What it does and what it does not
 
 - **It writes only when you ask it to.** `connect` creates a connect link, `send` sends a message (and creates the contact if the phone is new), `groups follow` imports a group into your account, and `funnelchat api` calls the function you name, which writes if it is not a `GET`. Every other command only reads: each call it makes is a `GET`.
-- **What cannot be undone asks first.** A function of `funnelchat api` that the spec marks as not undoable asks you to confirm it; without a terminal, it needs `--yes`.
+- **What cannot be undone asks first.** A function of `funnelchat api` that deletes or cancels asks you to confirm it, whatever its method (`POST`, `PUT` or `DELETE`); without a terminal, it needs `--yes` and otherwise sends nothing.
 - **A write is sent once.** The CLI never repeats it on its own; if the network fails halfway, it says the write may have arrived, so you can check before repeating it.
 - **It exports by paging through the public API**, because the API has no server-side export. A large account takes a while: the CLI goes at a low pace on purpose, so it does not slow down your panel.
 - **It never stores or shows your key** anywhere except your configuration file, if you use `funnelchat login`.
@@ -130,18 +138,20 @@ Before saving it, `login` checks it against `GET /api/v1/me`: if the API rejects
 
 ```bash
 funnelchat login --profile client-b
-funnelchat login --profile testing --staging
+funnelchat login --profile sandbox --base-url http://127.0.0.1:4010
 funnelchat profiles                 # lists the profiles, never the keys
 funnelchat profiles use client-b    # chooses the active one
-funnelchat --profile testing whoami
-funnelchat logout --profile testing # deletes that profile's key
+funnelchat --profile sandbox whoami
+funnelchat logout --profile sandbox # deletes that profile's key
 ```
 
-**The base URL.** By default, `https://api.funnelchat.com`. `--staging` uses `https://api-staging.funnelchat.com`; `--base-url` (or `FUNNELCHAT_BASE_URL`) any other, always `https`. `http` is accepted only for your own machine, for example the [sandbox](https://github.com/Funnelchat20/funnelchat-sandbox):
+**The base URL.** In this order: `--base-url`, then `FUNNELCHAT_BASE_URL`, then the one the active profile was saved with (`login` saves it), and otherwise production, `https://api.funnelchat.com`. It is so wherever the key comes from: a key in `FUNNELCHAT_API_KEY` goes to the active profile's base URL too, so a profile saved against the sandbox stays on the sandbox. `--staging` uses `https://api-staging.funnelchat.com`. Always `https`: `http` is accepted only for your own machine, for example the [sandbox](https://github.com/Funnelchat20/funnelchat-sandbox):
 
 ```bash
 FUNNELCHAT_API_KEY='1|fc_live_sandbox' funnelchat --base-url http://127.0.0.1:4010 contacts export
 ```
+
+`funnelchat whoami` says which base URL and which key it is using.
 
 **The configuration file** is at `~/.config/funnelchat/config.json` (or in `$XDG_CONFIG_HOME/funnelchat/`, or in `%APPDATA%\funnelchat\` on Windows; `FUNNELCHAT_CONFIG_DIR` changes it). If other users of your machine can read it, the CLI warns you.
 
@@ -151,7 +161,7 @@ Every command takes `--json` for use from scripts and `--help` to see all its op
 
 ### `funnelchat connect`
 
-Connects a WhatsApp number to your account by QR code. It creates a connect link (`POST /api/v1/connect-links` with `type: "qr"`), prints it, and waits until the number is connected. With `--us-number`, the link gives a new US number of Funnelchat instead; with `--device <id>`, it reconnects a number you already have.
+Connects a WhatsApp number to your account by QR code. It creates a connect link (`POST /api/v1/connect-links` with `type: "qr"`), prints it, and waits until the number is connected. With `--device <id>`, it reconnects a number you already have.
 
 ```bash
 funnelchat connect
@@ -174,8 +184,7 @@ Send a first message: funnelchat send <phone> "Hello from Funnelchat"
 |---|---|
 | `--no-wait` | Prints the link and ends, without waiting. For scripts and agents: `funnelchat numbers list` then shows when the number is connected. |
 | `--timeout <seconds>` | How long to wait for the number. By default, 900 (15 minutes). |
-| `--us-number` | A new US number of Funnelchat on the official WhatsApp API, instead of a QR. |
-| `--device <id>` | Reconnects that number of your account, with a link of its own type. It never adds a number. Not with `--us-number`. |
+| `--device <id>` | Reconnects that number of your account, connected by QR, with a new QR. It never adds a number. |
 
 - **The link** is a page on Funnelchat's domain. Opening it does not use it; tapping its button creates the number and shows the QR, which renews itself every 5 seconds. Treat it as a secret: it comes only in this answer, and whoever has it can connect a number to your account.
 - **How it knows:** it lists your numbers before creating the link and then every 5 seconds (`GET /api/v1/devices`), and stops at the first one that was not connected before. Each listing counts toward the daily cap of accounts (about 180 calls in 15 minutes, of 10,000 a day).
@@ -183,17 +192,7 @@ Send a first message: funnelchat send <phone> "Hello from Funnelchat"
 - **No QR in the terminal:** the page shows the QR that WhatsApp scans.
 - If nobody scans the QR within 10 minutes of tapping the button, the link fails and the number it created is deleted: run `funnelchat connect` again. If the CLI stops waiting before (`--timeout`, exit code `8`, or Ctrl+C), the link still works until it expires.
 
-**A US number of Funnelchat** (`--us-number`): the link is `type: "meta"` with `allowed_connection_types: ["dedicated"]` and `provision_us_number: true`.
-
-```bash
-funnelchat connect --us-number
-```
-
-- **On the page,** the person taps the button to use a Funnelchat US number and logs in with Facebook (Meta's signup, the same as the panel's). The number is new and dedicated to the API (it is not in the WhatsApp Business app).
-- **Meta charges its messages** to the payment method of the WhatsApp Business account: it has to be added in Meta.
-- If the Facebook login or Meta fails, the same link can be tried again, up to 5 failed attempts.
-- **It is an official number:** free text only reaches a contact who wrote to it in the last 24 hours (`422 window_closed` otherwise), so write to it first from the phone you send to.
-- Connecting an official number of your own by Facebook is done from the panel.
+**Official numbers** (WhatsApp Cloud API) connect through Meta, and that is not available by link yet: connect or reconnect them from your Funnelchat account. `--us-number`, which asked for a US number of Funnelchat, says so and creates nothing (exit code `2`, `meta_connect_unavailable`).
 
 **Reconnecting a number** (`--device <id>`): the link carries `device_id`, so it reconnects that number and takes no new place.
 
@@ -202,7 +201,7 @@ funnelchat numbers list            # the id, and whether it is connected
 funnelchat connect --device dev_Ac7Ku7iIZDXJTjVq0n1B2cD
 ```
 
-- **Of its own type:** a number connected by QR gets a QR link (`type: "qr"`); an official one gets a Facebook link (`type: "meta"`, with its connection, `coexistence` or `dedicated`, as `allowed_connection_types`). The CLI lists your numbers first to know which, even with `--no-wait`.
+- **Only a number connected by QR** (`type: "qr"`). The CLI lists your numbers first to know how it connects, even with `--no-wait`; an official one stops there, before creating anything (exit code `2`, `meta_connect_unavailable`).
 - **Already connected:** the CLI says so and creates no link (exit code `0`).
 - **Not one of your numbers:** exit code `4`, and no link is created.
 - The wait ends when that number is connected.
@@ -218,7 +217,7 @@ funnelchat send "+54 9 11 2233-4455" "Hello" --device dev_Ac7Ku7iIZDXJTjVq0n1B2c
 
 | Option | What it does |
 |---|---|
-| `--device <id>` | The number it sends from. By default, the only connected number of your account; with several, the CLI asks for this. |
+| `--device <id>` | The number it sends from. By default, the only connected number of your account. With several, it never picks one: it sends nothing and lists their ids (exit code `2`, `device_required`, and the numbers in `--json`). |
 | `--timeout <seconds>` | How long to watch the status. By default, 90. `0` sends and does not watch. |
 
 - **The phone**, with its country code. Spaces, dashes, dots, parentheses and a leading `+` are dropped; a phone with spaces goes in quotes, so that it reaches the CLI as one argument. It does not need to be a contact yet: the send creates it (`POST /api/v1/message/send-message`, with `device_id`, `phone` and `text`).
@@ -426,7 +425,7 @@ funnelchat api list --json           # name, method, path, summary, purpose, gro
 ```
 18 of 253 functions mention "difusiones". What one takes: `funnelchat api <function> --help`.
 
-Funciones de Funnelchat · https://developers-portal.funnelchat.app/docs/mas-funciones/funnelchat/
+Funciones de la plataforma · https://developers-portal.funnelchat.app/docs/mas-funciones/funnelchat/
   Automatizaciones
     contactAutomation.pause      POST    /api/v1/contacts/{contact}/pause              Pausar las automatizaciones de un contacto
   Difusiones
@@ -437,7 +436,7 @@ Funciones de Funnelchat · https://developers-portal.funnelchat.app/docs/mas-fun
     …
 ```
 
-The names and texts are the spec's. The name is the `operationId` (`GET /api/v1/me`, the one without it, is `me.get`). The category is the one of its group (`x-fc-categoria`), with the title and the page the portal gives it (`x-fc-categorias`): Primer uso, Funciones de WhatsApp and Funciones de Funnelchat. The summary and purpose are in Spanish, as the portal writes them.
+The names and texts are the spec's. The name is the `operationId` (`GET /api/v1/me`, the one without it, is `me.get`). The category is the one of its group (`x-fc-categoria`), with the title and the page the portal gives it (`x-fc-categorias`): Primer uso, Funciones de WhatsApp and Funciones de la plataforma. The summary and purpose are in Spanish, as the portal writes them.
 
 ### `funnelchat api <function>`
 
@@ -446,17 +445,17 @@ Calls one function of `api list`. `funnelchat api <function> --help` says what i
 ```bash
 funnelchat api broadcast.index --perPage 50 --orderBy created_at --orderByMethod desc
 funnelchat api contact.show --contact ctc_ABsza6Ialu1BCUyPFZ8WJvV
-funnelchat api message.sendMessage --field device_id=3 --field phone=5491122334455 --field text="Hello from Funnelchat"
+funnelchat api message.sendMessage --field device_id=dev_ABsza6Ialu1BCUyPFZ8WJvV --field phone=5491122334455 --field text="Hello from Funnelchat"
 funnelchat api tag.store --body @tag.json
 funnelchat api device.destroy --device dev_ABsza6Ialu1BCUyPFZ8WJvV               # asks before; with --yes it does not
 ```
 
 - **Path and query parameters are options**, with the name the spec gives them: `--contact ctc_ABsza6Ialu1BCUyPFZ8WJvV`, `--perPage 50`. One that takes several values is repeated: `--status 1 --status 2`. The path's are required.
-- **The JSON body** goes field by field with `--field key=value` (repeatable), or whole with `--body`: inline JSON, `@file.json` or `@-` (standard input); `--field` adds to `--body`. Each value takes the type the spec gives its field: `device_id=3` is the number 3, `phone=5491122334455` is text, `note=true` a boolean, `[…]` and `{…}` are JSON, and repeating a field that takes a list makes the list (`--field mentions=7 --field mentions=8`). A field the body does not have stops the call before anything is sent.
+- **The JSON body** goes field by field with `--field key=value` (repeatable), or whole with `--body`: inline JSON, `@file.json` or `@-` (standard input); `--field` adds to `--body`. Each value takes the type the spec gives its field: `expires_in_minutes=60` is the number 60, `phone=5491122334455` is text, `note=true` a boolean, `[…]` and `{…}` are JSON, and repeating a field that takes a list makes the list (`--field mentions=usr_ABsza6Ialu1BCUyPFZ8WJvV --field mentions=usr_Ac7Ku7iIZDXJTjVq0n1B2cD`). A field the body does not have stops the call before anything is sent.
 - **The answer is printed as JSON**, as the API returns it. An answer without a body (`204`) prints nothing.
 - **A listing pages** as the spec says: `--page` or `--cursor` for one page, or `--all` for every page, in a single JSON array (it asks for the largest page the spec allows).
 - **A write** (a function that is not a `GET`) is sent once and never retried, like the rest of the CLI's.
-- **What cannot be undone asks first.** A function the spec marks with `x-fc-destructive: true` (today: deleting a number, resetting its session or disconnecting it, emptying its message queue and deleting a custom domain), and a `DELETE` the spec does not mark either way, asks you to type `yes`. Without a terminal (a script, an agent) nothing is sent unless you add `--yes`: exit code `2`, `confirmation_required`.
+- **What cannot be undone asks first**, whatever its method. The spec marks it with `x-fc-destructive: true`: 23 functions, among them deleting contacts (`contact.destroy`, a `POST`), tags and custom fields, cancelling a broadcast or a flow run, deleting a template, a number or a webhook, and emptying a number's message queue. As a safety net, in case the spec misses one, a function named `.destroy…`, `.delete…` or `.cancel…`, a `DELETE` the spec does not mark either way and a body with `all=true` ask too. The CLI asks you to type `yes`; without a terminal (a script, an agent) nothing is sent unless you add `--yes`: exit code `2`, `confirmation_required`. `funnelchat api list` shows `(asks to confirm)` next to them.
 - **Errors** are like every command's: the exit code by the status, and the `X-Request-Id` to quote.
 
 The command has nothing written for any one function: it is generated from the spec. When the spec of the CLI changes, `funnelchat api` lists and calls what the new one has.
@@ -494,7 +493,7 @@ To work with Funnelchat, use the `funnelchat` CLI; the key is already configured
 {
   "manifest_version": 1,
   "kind": "conversations",
-  "generator": { "name": "@funnelchat-hq/cli", "version": "0.4.0" },
+  "generator": { "name": "@funnelchat-hq/cli", "version": "0.6.0" },
   "api": { "base_url": "https://api.funnelchat.com", "spec": { "source": "https://developers-portal.funnelchat.app/specs/funnelchat.json", "commit": null, "sha256": "a7b4807…" }, "routes": [ … ] },
   "started_at": "2026-10-16T12:00:00.000Z",
   "finished_at": "2026-10-16T12:41:10.000Z",
@@ -569,14 +568,14 @@ The CLI asks the API for its messages in Spanish (`Accept-Language: es`), so the
 |---|---|
 | `0` | All good. |
 | `1` | An unexpected error. |
-| `2` | Wrong usage: an invalid option or value, or `--resume` with options different from the original ones; or an `api` function that cannot be undone, not confirmed (without a terminal, without `--yes`). |
+| `2` | Wrong usage: an invalid option or value, or `--resume` with options different from the original ones; an `api` function that cannot be undone, not confirmed (without a terminal, without `--yes`: `confirmation_required`); `send` or `groups` without `--device` and several numbers (`device_required`); or a link through Meta, not available yet (`meta_connect_unavailable`). Nothing was sent. |
 | `3` | No key, a key the API rejects (`401`) or a key without the permission the route needs (`403`). |
 | `4` | Not found in your account, or it belongs to another account (`404 not_found`); or the route does not exist in the API (`404 route_not_found`). |
 | `5` | An API limit the CLI does not wait for on its own: the daily cap or a long `Retry-After`. It can be resumed. |
 | `6` | The API failed (`5xx`, `422`…) or could not be reached, after the retries; the payment of the account or of the workspace is overdue (`402 payment_required`); or the message `send` watched failed. |
 | `7` | The output already exists: the CLI never overwrites a file. |
 | `8` | `connect` waited `--timeout` and no number connected. |
-| `130` | Interrupted with Ctrl+C. An export can be resumed. |
+| `130` | Interrupted with Ctrl+C, at any moment (also while waiting between two calls). An export can be resumed. |
 
 ## What the API does not allow yet
 
@@ -602,7 +601,7 @@ The public API moved to **opaque ids**, with a direct cut and no transition (por
 
 ## Where the spec comes from
 
-`spec/funnelchat.json` is the spec the developer portal publishes, <https://developers-portal.funnelchat.app/specs/funnelchat.json>, that of portal v0.7.0 (sha256 `fadcd737…`): the operations and events the portal shows, which per the portal are those an API key can use in production. It has 253 operations and 57 webhook events, in three categories: Primer uso, Funciones de WhatsApp and Funciones de Funnelchat. It does not date the areas it is built from (its `x-fc-sources` carry no commit), so `spec/procedencia.json` records the URL and the portal's version, as declared, and the file's `sha256`. Since v0.6.15 it also declares, for each route, the errors of the common format (see [For scripts](#for-scripts)).
+`spec/funnelchat.json` is the spec the developer portal publishes, <https://developers-portal.funnelchat.app/specs/funnelchat.json>, that of portal `v0.7.0-35-gfe4df8d` (sha256 `4a8fbaee…`): the operations and events the portal shows, which per the portal are those an API key can use in production. It has 253 operations and 58 webhook events, in three categories: Primer uso, Funciones de WhatsApp and Funciones de la plataforma. Every operation says with `x-fc-destructive` whether it can be undone. It does not date the areas it is built from (its `x-fc-sources` carry no commit), so `spec/procedencia.json` records the URL and the portal's version, as declared, and the file's `sha256`. Since v0.6.15 it also declares, for each route, the errors of the common format (see [For scripts](#for-scripts)).
 
 Every route, parameter and body field the named commands use is in it, `GET /api/v1/me` of `login` and `whoami` included: `spec/pending.json` stays empty. The catalog of `funnelchat api` (`src/generated/operations.ts`) is generated from it, and from it alone.
 
@@ -619,15 +618,16 @@ npm run build
 
 To develop you need Node 20.19 or later (for the test tools); the CLI it builds runs on Node 18.
 
-**The tests** use simulated answers, with the same shapes as the API (pages by number and by cursor). They cover paging, resuming, `429`s, that the key never shows up in any output or any file, that no file is overwritten, the manifest's SHA-256, and the first use: `connect` waiting for the number (also a US number and a reconnection), and `send` watching the status until it is read; and `funnelchat api`: listing, a read, a write with a body and the confirmation of what cannot be undone.
+**The tests** use simulated answers, with the same shapes as the API (pages by number and by cursor). They cover paging, resuming, `429`s, that the key never shows up in any output or any file, that no file is overwritten, the manifest's SHA-256, and the first use: `connect` waiting for the number (also a reconnection), and `send` watching the status until it is read; and `funnelchat api`: listing, a read, a write with a body and the confirmation of what cannot be undone, also by `POST`.
 
-**End to end against the sandbox.** With an already built checkout of [funnelchat-sandbox](https://github.com/Funnelchat20/funnelchat-sandbox) (`npm install && npm run build` in its folder), this test starts it in the same process, on a free port, and runs the CLI against it. It does not touch the sandbox's repository:
+**End to end against the sandbox** ([funnelchat-sandbox](https://github.com/Funnelchat20/funnelchat-sandbox) 0.7.0 or later). Against one already running, on a port of your own (it resets it first, and runs the built CLI, `npm run build`, for Ctrl+C):
 
 ```bash
-FUNNELCHAT_SANDBOX_DIR=../funnelchat-sandbox npm run test:e2e
+npx @funnelchat-hq/sandbox@0.7.0 --port 4220          # in another terminal
+FUNNELCHAT_SANDBOX_URL=http://127.0.0.1:4220 npm run test:e2e
 ```
 
-Without that variable, `npm test` skips it.
+Or with a built checkout of the sandbox, which the test starts in the same process, on a free port, without touching its repository: `FUNNELCHAT_SANDBOX_DIR=../funnelchat-sandbox npm run test:e2e`. Without either variable, `npm test` skips it.
 
 **The spec.** It is copied and regenerated with a single script, which records where it came from in `spec/procedencia.json`, checks that every route, every parameter and every body field the named commands use exists, and writes the catalog of `funnelchat api` (`src/generated/operations.ts`: every operation, with its category, group, parameters, body fields and `x-fc-destructive`). A new spec is a new catalog, with no code to change:
 

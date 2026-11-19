@@ -2,10 +2,10 @@
  * The commands of `funnelchat`. {@link run} takes everything from the outside world as arguments, so
  * tests run the real CLI with a fake `fetch`, fake streams and a temporary folder.
  */
-import { Command, CommanderError } from 'commander';
+import { Command, CommanderError, Option } from 'commander';
 import type { Context as ContextType, GlobalOptions, Io } from './context.js';
 import { Context } from './context.js';
-import { ExitCode } from './errors.js';
+import { asInterrupted, ExitCode } from './errors.js';
 import { login, logout, profilesList, profilesUse, whoami } from './commands/account.js';
 import { addApiCommands } from './commands/api.js';
 import { collect, explicitOptions } from './commands/common.js';
@@ -30,7 +30,8 @@ const EXIT_CODES_HELP = `
 Exit codes:
   0    all good
   1    unexpected error
-  2    wrong usage (invalid option or value)
+  2    wrong usage (invalid option or value), or something that cannot be undone and has no terminal to
+       confirm it and no --yes (code confirmation_required): nothing was sent
   3    no key, a key the API rejects (401) or a missing permission (403)
   4    not found in your account (404)
   5    an API limit the CLI does not wait for (daily cap or a long Retry-After): it can be resumed
@@ -42,7 +43,7 @@ Exit codes:
 Environment variables:
   FUNNELCHAT_API_KEY     the key (wins over the saved profile, except with --profile)
   FUNNELCHAT_PROFILE     the profile to use
-  FUNNELCHAT_BASE_URL    the base URL
+  FUNNELCHAT_BASE_URL    the base URL: --base-url wins over it, and it wins over the profile's
   FUNNELCHAT_RATE        requests per second
   FUNNELCHAT_CONFIG_DIR  where to keep the configuration
 
@@ -86,7 +87,7 @@ export async function run(argv: string[], io: Io): Promise<number> {
       await fn(ctx, command, ...args.slice(0, -1));
       exitCode = ExitCode.OK;
     } catch (error) {
-      exitCode = ctx.out.error(error);
+      exitCode = ctx.out.error(io.signal?.aborted ? asInterrupted(error) : error);
     }
   };
 
@@ -121,16 +122,11 @@ export async function run(argv: string[], io: Io): Promise<number> {
   // --- first use: connect, send, groups ---------------------------------------------------------
   program
     .command('connect')
-    .description(
-      'Creates a link to connect a WhatsApp number by QR code, prints it and waits until the number connects. With --us-number the link gives a new US number of Funnelchat instead; with --device it reconnects a number you already have.',
-    )
+    .description('Creates a link to connect a WhatsApp number by QR code, prints it and waits until the number connects. With --device it reconnects a number you already have.')
     .option('--no-wait', 'Prints the link and ends, without waiting (for scripts and agents).')
     .option('--timeout <seconds>', `How long to wait for the number (${CONNECT_TIMEOUT_SECONDS} by default).`)
-    .option(
-      '--us-number',
-      'A new US number of Funnelchat on the official WhatsApp API, instead of a QR: the page asks to log in with Facebook, and Meta charges the messages (it needs a payment method in Meta).',
-    )
-    .option('--device <id>', 'Reconnects this number of your account with a link of its own type (QR or official); it never adds a number. Not with --us-number.')
+    .addOption(new Option('--us-number').hideHelp())
+    .option('--device <id>', 'Reconnects this number of your account, connected by QR, with a new QR; it never adds a number.')
     .action(action((ctx, command) => connect(ctx, command.opts() as ConnectFlags)));
 
   program

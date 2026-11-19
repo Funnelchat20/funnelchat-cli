@@ -5,9 +5,10 @@
  * (`FUNNELCHAT_PROFILE`, then the one `login` left active, then `default`). The key is never taken
  * from a command-line flag, so it does not end up in the shell history or in `ps`.
  *
- * Base URL: `--base-url`, then `--staging`, then `FUNNELCHAT_BASE_URL`, then the profile's, then
- * production. Plain `http` is accepted only for this machine (the sandbox), never to send a key
- * across the network.
+ * Base URL: `--base-url` (or `--staging`), then `FUNNELCHAT_BASE_URL`, then the active profile's, then
+ * production, wherever the key came from: a key in `FUNNELCHAT_API_KEY` still goes to the base URL of the
+ * active profile (one saved against the sandbox stays on the sandbox). Plain `http` is accepted only for
+ * this machine (the sandbox), never to send a key across the network.
  */
 import { CliError, ExitCode, usageError } from '../errors.js';
 import type { ConfigFile } from './store.js';
@@ -81,7 +82,7 @@ export function resolveCredentials(flags: ConnectionFlags, env: Record<string, s
   const envKey = nonEmpty(env.FUNNELCHAT_API_KEY);
 
   if (flags.profile === undefined && envKey) {
-    return { apiKey: checkKeyShape(envKey), keySource: 'env', profile: profileName, baseUrl: resolveBaseUrl(flags, env, undefined) };
+    return { apiKey: checkKeyShape(envKey), keySource: 'env', profile: profileName, baseUrl: resolveBaseUrl(flags, env, profile?.base_url) };
   }
   if (profile?.api_key) {
     return { apiKey: checkKeyShape(profile.api_key), keySource: 'profile', profile: profileName, baseUrl: resolveBaseUrl(flags, env, profile.base_url) };

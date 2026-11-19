@@ -1,6 +1,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { asksConfirmation, confirmationReason } from '../src/commands/api.js';
+import { operations, type OperationInfo } from '../src/generated/operations.js';
 import { cli, fakeFetch, oid, requestIdOf, tempDir } from './helpers.js';
 
 const spec = JSON.parse(readFileSync(new URL('../spec/funnelchat.json', import.meta.url), 'utf8')) as { paths: Record<string, Record<string, unknown>> };
@@ -18,7 +20,7 @@ describe('funnelchat api', () => {
       path: '/api/v1/broadcasts',
       summary: 'Ver tus difusiones',
       category: 'funnelchat',
-      category_title: 'Funciones de Funnelchat',
+      category_title: 'Funciones de la plataforma',
       group: 'Difusiones',
       pagination: 'page',
     });
@@ -53,11 +55,11 @@ describe('funnelchat api', () => {
     let fail = false;
     const { fetch, calls } = fakeFetch(() => (fail ? { status: 500, body: { message: 'Error interno' } } : { status: 201, body: { data: { id: 99 } } }));
     const cwd = tempDir();
-    const fields = ['--field', `device_id=${oid('dev', 3)}`, '--field', 'phone=5491122334455', '--field', 'text=Hola', '--field', 'mentions=7', '--field', 'mentions=8'];
+    const fields = ['--field', `device_id=${oid('dev', 3)}`, '--field', 'phone=5491122334455', '--field', 'text=Hola', '--field', `mentions=${oid('usr', 7)}`, '--field', `mentions=${oid('usr', 8)}`];
     const sent = await cli(['api', 'message.sendMessage', ...fields], { fetch, cwd });
     expect(sent.code, sent.stderr).toBe(0);
     expect(JSON.parse(sent.stdout)).toEqual({ data: { id: 99 } });
-    expect(calls[0]).toMatchObject({ method: 'POST', path: '/api/v1/message/send-message', body: { device_id: oid('dev', 3), phone: '5491122334455', text: 'Hola', mentions: [7, 8] } });
+    expect(calls[0]).toMatchObject({ method: 'POST', path: '/api/v1/message/send-message', body: { device_id: oid('dev', 3), phone: '5491122334455', text: 'Hola', mentions: [oid('usr', 7), oid('usr', 8)] } });
 
     writeFileSync(join(cwd, 'body.json'), JSON.stringify({ device_id: oid('dev', 3), phone: '5491122334455', text: 'Hola' }));
     const fromFile = await cli(['api', 'message.sendMessage', '--body', '@body.json', '--field', 'text=Chau'], { fetch, cwd });
@@ -92,5 +94,42 @@ describe('funnelchat api', () => {
     const yes = await cli([...args, '--yes'], { fetch, cwd });
     expect(yes.code, yes.stderr).toBe(0);
     expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual([`DELETE /api/v1/devices/${device}`, `DELETE /api/v1/devices/${device}`]);
+  });
+
+  it('a deletion sent by POST or PUT asks too: contact.destroy --field all=true without a terminal sends nothing', async () => {
+    const { fetch, calls } = fakeFetch(() => ({ status: 200, body: {} }));
+    const cwd = tempDir();
+    for (const args of [
+      ['api', 'contact.destroy', '--field', 'all=true'],
+      ['api', 'tag.destroy', '--field', `tagIds=${oid('tag', 1)}`],
+      ['api', 'customField.destroy', '--body', '{"customFieldIds":[]}'],
+      ['api', 'broadcast.cancel', '--broadcast', oid('brd', 4)],
+      ['api', 'flow.cancelContactFlow', '--contactFlowId', '7'],
+    ]) {
+      const refused = await cli(['--json', ...args], { fetch, cwd, stdin: '' });
+      expect(refused.code, `${args[1]}: ${refused.stderr}`).toBe(2);
+      expect(JSON.parse(refused.stderr)).toMatchObject({ error: { code: 'confirmation_required', exit_code: 2, function: args[1] } });
+    }
+    expect(calls).toEqual([]);
+
+    const yes = await cli(['api', 'contact.destroy', '--field', 'all=true', '--yes'], { fetch, cwd });
+    expect(yes.code, yes.stderr).toBe(0);
+    expect(calls.map((c) => [c.method, c.path, c.body])).toEqual([['POST', '/api/v1/contacts/delete', { all: true }]]);
+  });
+
+  it('the safety net: a name that deletes or cancels, and a body with all=true, ask even if the spec does not mark them', () => {
+    const base = { summary: null, purpose: null, category: null, group: null, tag: null, domain: null, permission: null, pagination: 'none', pageSize: null, params: [] } as const;
+    const op = (name: string, method: OperationInfo['method'], destructive: boolean | null) => ({ ...base, name, method, path: '/api/v1/x', destructive, body: null });
+    expect(confirmationReason(op('whatsappForm.destroy', 'DELETE', false))).toBe('by_name');
+    expect(confirmationReason(op('messageTemplate.delete', 'POST', false))).toBe('by_name');
+    expect(confirmationReason(op('device.deleteMessageQueue', 'POST', false))).toBe('by_name');
+    expect(confirmationReason(op('broadcast.cancel', 'PUT', false))).toBe('by_name');
+    expect(confirmationReason(op('item.remove', 'DELETE', null))).toBe('unmarked_delete');
+    expect(confirmationReason(op('item.remove', 'DELETE', false))).toBeNull();
+    expect(confirmationReason(op('contact.destroyed', 'GET', false))).toBeNull();
+    expect(confirmationReason(op('contact.update', 'POST', false), { all: true })).toBe('all');
+    expect(confirmationReason(op('contact.update', 'POST', false), { all: 'true' })).toBe('all');
+    expect(confirmationReason(op('contact.update', 'POST', false), { all: false })).toBeNull();
+    expect(operations.filter((o) => o.destructive === true).every((o) => asksConfirmation(o))).toBe(true);
   });
 });
