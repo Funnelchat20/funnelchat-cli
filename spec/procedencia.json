@@ -1,51 +1,54 @@
 {
   "description": "Where spec/funnelchat.json came from. Written by `npm run generate -- --spec <file>`; do not edit it by hand.",
   "file": "spec/funnelchat.json",
-  "sha256": "4a8fbaee9d8b251fd0df44b5a6ae5e4a55ca4993569a5af6834c09b31a4bb423",
-  "bytes": 1447302,
+  "sha256": "b98c53bd7dc167cfc77fbd15bb4334d98f2361d56b3edf3e03949ad723135b47",
+  "bytes": 1489584,
   "source": {
     "repository": "https://github.com/Funnelchat20/developers-portal.git",
     "path": "public/specs/funnelchat.json",
-    "branch": "docs/integracion-17nov",
-    "commit": "fe4df8d241a2e5b8591d352930be1a08642b5740",
-    "commit_date": "2026-11-18T10:15:03-05:00",
+    "branch": "main",
+    "commit": "5c9ed623381df7c7474c6c975b6ba2c73fc18eb4",
+    "commit_date": "2026-11-27T15:34:29-05:00",
     "file_tracked_in_git": false,
     "tracked_files_clean": true,
-    "file_modified_at": "2026-11-18T15:46:28.340Z",
+    "file_modified_at": "2026-11-27T20:32:16.393Z",
     "url": "https://developers-portal.funnelchat.app/specs/funnelchat.json",
-    "portal_version": "v0.7.0-35-gfe4df8d",
+    "portal_version": "v0.7.0-54-g5c9ed62",
     "declared": [
       "url",
       "portal_version"
     ],
     "declared_note": "The fields in `declared` were given on the command line (`--source`), not read from git: the file was imported from outside a checkout of its repository."
   },
-  "imported_at": "2026-11-18T15:48:22.030Z",
+  "imported_at": "2026-11-27T21:00:10.121Z",
   "spec": {
     "openapi": "3.1.0",
     "title": "Funnelchat API",
     "version": "v0",
-    "paths": 209,
-    "operations": 253,
+    "paths": 210,
+    "operations": 260,
     "webhooks": 58,
     "domains": [
       {
         "domain": "conversations",
-        "sha": null,
-        "branch": null,
-        "snapshot_at": null
+        "sha": "c5fbf5fe2705715d2096e3940b2458f7ab43fea3",
+        "branch": "detached",
+        "snapshot_at": "2026-11-18T10:02:58-05:00",
+        "declared": true
       },
       {
         "domain": "communities",
-        "sha": null,
-        "branch": null,
-        "snapshot_at": null
+        "sha": "ee3edd6dce1e639258deb68c536f6c3c4f702d21",
+        "branch": "main",
+        "snapshot_at": "2026-11-27T15:32:12-05:00",
+        "declared": true
       },
       {
         "domain": "accounts",
-        "sha": null,
-        "branch": null,
-        "snapshot_at": null
+        "sha": "c5fbf5fe2705715d2096e3940b2458f7ab43fea3",
+        "branch": "detached",
+        "snapshot_at": "2026-11-18T10:02:58-05:00",
+        "declared": true
       }
     ]
   }

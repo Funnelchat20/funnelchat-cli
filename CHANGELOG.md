@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0
+
+The spec of the developer portal at `5c9ed62` (`v0.7.0-54-g5c9ed62`, sha256 `b98c53bd…`), of 27-11-2026: 260
+operations (253 before). Campaigns and scheduled messages to groups are written with an API key.
+
+- **7 new functions in `funnelchat api`:** `campaign.store`, `campaign.update`, `campaign.status` (activate or pause)
+  and `campaign.destroy`; `scheduledMessage.store`, `scheduledMessage.update` and `scheduledMessage.destroy`
+  (cancel). `funnelchat api <function> --help` says what each one takes.
+- **Deleting a campaign and cancelling a scheduled message ask first:** the spec marks them with
+  `x-fc-destructive: true` (25 functions now). Without a terminal and without `--yes`, nothing is sent.
+- `send_at` of a scheduled message is text as the API takes it, in UTC: `--field send_at="2026-12-07 13:00:00"`.
+
 ## 0.6.0
 
 The spec of the developer portal at `fe4df8d` (`v0.7.0-35-gfe4df8d`, sha256 `4a8fbaee…`): 253 operations, each one

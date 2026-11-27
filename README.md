@@ -423,7 +423,7 @@ funnelchat api list --json           # name, method, path, summary, purpose, gro
 ```
 
 ```
-18 of 253 functions mention "difusiones". What one takes: `funnelchat api <function> --help`.
+18 of 260 functions mention "difusiones". What one takes: `funnelchat api <function> --help`.
 
 Funciones de la plataforma · https://developers-portal.funnelchat.app/docs/mas-funciones/funnelchat/
   Automatizaciones
@@ -448,6 +448,8 @@ funnelchat api contact.show --contact ctc_ABsza6Ialu1BCUyPFZ8WJvV
 funnelchat api message.sendMessage --field device_id=dev_ABsza6Ialu1BCUyPFZ8WJvV --field phone=5491122334455 --field text="Hello from Funnelchat"
 funnelchat api tag.store --body @tag.json
 funnelchat api device.destroy --device dev_ABsza6Ialu1BCUyPFZ8WJvV               # asks before; with --yes it does not
+funnelchat api scheduledMessage.store --body @scheduled.json                     # schedule a message to groups
+funnelchat api campaign.status --campaign cmp_A6RMvAOjr0mHuLr08RpcwWu --field active=false   # pause a campaign
 ```
 
 - **Path and query parameters are options**, with the name the spec gives them: `--contact ctc_ABsza6Ialu1BCUyPFZ8WJvV`, `--perPage 50`. One that takes several values is repeated: `--status 1 --status 2`. The path's are required.
@@ -455,7 +457,7 @@ funnelchat api device.destroy --device dev_ABsza6Ialu1BCUyPFZ8WJvV              
 - **The answer is printed as JSON**, as the API returns it. An answer without a body (`204`) prints nothing.
 - **A listing pages** as the spec says: `--page` or `--cursor` for one page, or `--all` for every page, in a single JSON array (it asks for the largest page the spec allows).
 - **A write** (a function that is not a `GET`) is sent once and never retried, like the rest of the CLI's.
-- **What cannot be undone asks first**, whatever its method. The spec marks it with `x-fc-destructive: true`: 23 functions, among them deleting contacts (`contact.destroy`, a `POST`), tags and custom fields, cancelling a broadcast or a flow run, deleting a template, a number or a webhook, and emptying a number's message queue. As a safety net, in case the spec misses one, a function named `.destroy…`, `.delete…` or `.cancel…`, a `DELETE` the spec does not mark either way and a body with `all=true` ask too. The CLI asks you to type `yes`; without a terminal (a script, an agent) nothing is sent unless you add `--yes`: exit code `2`, `confirmation_required`. `funnelchat api list` shows `(asks to confirm)` next to them.
+- **What cannot be undone asks first**, whatever its method. The spec marks it with `x-fc-destructive: true`: 25 functions, among them deleting contacts (`contact.destroy`, a `POST`), tags and custom fields, cancelling a broadcast, a flow run or a scheduled message, deleting a template, a number, a webhook or a campaign, and emptying a number's message queue. As a safety net, in case the spec misses one, a function named `.destroy…`, `.delete…` or `.cancel…`, a `DELETE` the spec does not mark either way and a body with `all=true` ask too. The CLI asks you to type `yes`; without a terminal (a script, an agent) nothing is sent unless you add `--yes`: exit code `2`, `confirmation_required`. `funnelchat api list` shows `(asks to confirm)` next to them.
 - **Errors** are like every command's: the exit code by the status, and the `X-Request-Id` to quote.
 
 The command has nothing written for any one function: it is generated from the spec. When the spec of the CLI changes, `funnelchat api` lists and calls what the new one has.
@@ -601,7 +603,7 @@ The public API moved to **opaque ids**, with a direct cut and no transition (por
 
 ## Where the spec comes from
 
-`spec/funnelchat.json` is the spec the developer portal publishes, <https://developers-portal.funnelchat.app/specs/funnelchat.json>, that of portal `v0.7.0-35-gfe4df8d` (sha256 `4a8fbaee…`): the operations and events the portal shows, which per the portal are those an API key can use in production. It has 253 operations and 58 webhook events, in three categories: Primer uso, Funciones de WhatsApp and Funciones de la plataforma. Every operation says with `x-fc-destructive` whether it can be undone. It does not date the areas it is built from (its `x-fc-sources` carry no commit), so `spec/procedencia.json` records the URL and the portal's version, as declared, and the file's `sha256`. Since v0.6.15 it also declares, for each route, the errors of the common format (see [For scripts](#for-scripts)).
+`spec/funnelchat.json` is the spec the developer portal publishes, <https://developers-portal.funnelchat.app/specs/funnelchat.json>, that of portal `v0.7.0-54-g5c9ed62` (sha256 `b98c53bd…`): the operations and events the portal shows, which per the portal are those an API key can use in production. It has 260 operations and 58 webhook events, in three categories: Primer uso, Funciones de WhatsApp and Funciones de la plataforma. Every operation says with `x-fc-destructive` whether it can be undone. It does not date the areas it is built from (its `x-fc-sources` carry no commit), so `spec/procedencia.json` records the URL, the portal's version and the commit of each area, as declared, and the file's `sha256`. Since v0.6.15 it also declares, for each route, the errors of the common format (see [For scripts](#for-scripts)).
 
 Every route, parameter and body field the named commands use is in it, `GET /api/v1/me` of `login` and `whoami` included: `spec/pending.json` stays empty. The catalog of `funnelchat api` (`src/generated/operations.ts`) is generated from it, and from it alone.
 
